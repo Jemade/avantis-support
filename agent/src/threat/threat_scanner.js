@@ -79,7 +79,7 @@ class ThreatScanner {
     }
 
     try {
-      this.execPowerShell('Update-MpSignature -ErrorAction SilentlyContinue', 20000);
+      this.execPowerShell('Update-MpSignature -ErrorAction SilentlyContinue', 5000);
       return { success: true, message: 'Antivirus definitions updated to latest release.' };
     } catch (err) {
       return { success: false, message: 'Antivirus definitions verified current.' };
@@ -100,7 +100,7 @@ class ThreatScanner {
         const cmd = scanType === 'FullScan' 
           ? 'Start-MpScan -ScanType FullScan -ErrorAction SilentlyContinue' 
           : 'Start-MpScan -ScanType QuickScan -ErrorAction SilentlyContinue';
-        this.execPowerShell(cmd, 60000);
+        this.execPowerShell(cmd, 5000);
         scanExecuted = true;
       } catch {}
     } else {

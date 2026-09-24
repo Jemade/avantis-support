@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-Avantis.Agent.Service-2026</UserSecretsId>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Avantis.Contracts\Avantis.Contracts.csproj" />
+    <ProjectReference Include="..\Avantis.Agent.Core\Avantis.Agent.Core.csproj" />
+    <ProjectReference Include="..\Avantis.Agent.Hardware\Avantis.Agent.Hardware.csproj" />
+    <ProjectReference Include="..\Avantis.Agent.Storage\Avantis.Agent.Storage.csproj" />
+    <ProjectReference Include="..\Avantis.Agent.Diagnostics\Avantis.Agent.Diagnostics.csproj" />
+    <ProjectReference Include="..\Avantis.Agent.Remediation\Avantis.Agent.Remediation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

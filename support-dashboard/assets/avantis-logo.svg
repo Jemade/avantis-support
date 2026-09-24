@@ -1,19 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 46" fill="none">
-  <!-- A1: Upward Chevron ('^') with clean rounded terminals -->
-  <path d="M 4 33 L 17 8 L 30 33" stroke="#13A3AF" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- V: Downward Chevron ('v') with clear whitespace spacing -->
-  <path d="M 36 8 L 49 33 L 62 8" stroke="#13A3AF" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- A2: Upward Chevron ('^') -->
-  <path d="M 68 33 L 81 8 L 94 33" stroke="#13A3AF" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- N: Bold letterform -->
-  <path d="M 102 33 V 8 L 122 33 V 8" stroke="#13A3AF" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- T: Bold letterform -->
-  <path d="M 129 8 H 151 M 140 8 V 33" stroke="#13A3AF" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- i: Lowercase with separated round dot -->
-  <path d="M 158 16 V 33" stroke="#13A3AF" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="158" cy="9" r="2.8" fill="#13A3AF"/>
-  <!-- S: Geometric curvature -->
-  <path d="M 188 14 C 188 9 181 8 175 8 C 168 8 165 11 165 14.5 C 165 21 188 19 188 27 C 188 33 177 33.5 168 33.5 C 161 33.5 158 31 158 28" stroke="#13A3AF" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Subtitle: Product of Zimbabwe in lighter muted teal (#98D3D8) -->
-  <text x="44" y="44" fill="#98D3D8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Plus Jakarta Sans', sans-serif" font-weight="600" font-size="8.5" letter-spacing="2.4">PRODUCT OF ZIMBABWE</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 52" fill="none" aria-label="AVANTiS — Product of Zimbabwe">
+  <!-- A1: upward chevron -->
+  <path d="M 6 36 L 20 10 L 34 36" stroke="#13A3AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- V: downward chevron -->
+  <path d="M 40 10 L 54 36 L 68 10" stroke="#13A3AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- A2: upward chevron -->
+  <path d="M 74 36 L 88 10 L 102 36" stroke="#13A3AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- N -->
+  <path d="M 110 36 V 10 L 132 36 V 10" stroke="#13A3AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- T -->
+  <path d="M 138 10 H 162 M 150 10 V 36" stroke="#13A3AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- i -->
+  <path d="M 170 18 V 36" stroke="#13A3AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="170" cy="10" r="3" fill="#13A3AF"/>
+  <!-- S -->
+  <path d="M 200 16 C 200 10 192 9 185 9 C 177 9 173 13 173 17 C 173 24 200 22 200 30 C 200 36 188 37 179 37 C 172 37 168 34 168 31" stroke="#13A3AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Tagline -->
+  <text x="48" y="50" fill="#98D3D8" font-family="'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-weight="600" font-size="8.5" letter-spacing="2.6">PRODUCT OF ZIMBABWE</text>
 </svg>

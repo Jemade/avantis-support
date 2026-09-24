@@ -227,7 +227,7 @@ async function viewReport(filename) {
     if (title) title.innerText = `Audit Report: ${rep.hostname} (${filename})`;
     if (body) {
       body.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:12px 16px; border:1px solid #e2e8f0; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:12px 16px; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:16px;">
           <div>
             <strong>Status:</strong> <span class="badge ${rep.overallStatus === 'PASS' ? 'badge-PASS' : 'badge-WARNING'}">${rep.overallStatus}</span>
             <span style="margin-left:14px; font-size:12px; color:var(--muted);">Duration: ${rep.durationSeconds}s · Modules: 5</span>
@@ -239,7 +239,7 @@ async function viewReport(filename) {
           <h4 style="font-size:12px; text-transform:uppercase; color:var(--avantis-teal); font-weight:800; margin-bottom:8px;">5-Stage Execution Summary</h4>
           <div style="display:flex; flex-direction:column; gap:6px;">
             ${(rep.modules || []).map(m => `
-              <div style="display:flex; justify-content:space-between; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; font-size:12.5px;">
+              <div style="display:flex; justify-content:space-between; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:12.5px;">
                 <div>
                   <strong>${m.name}</strong>
                   <div style="font-size:11.5px; color:var(--muted);">${m.summary}</div>
@@ -250,9 +250,9 @@ async function viewReport(filename) {
           </div>
         </div>
 
-        <div style="background:#f8fafc; padding:12px 16px; border:1px solid #e2e8f0;">
+        <div style="background:#f8fafc; padding:12px 16px; border:1px solid #e2e8f0; border-radius:10px;">
           <h4 style="font-size:11px; text-transform:uppercase; color:var(--muted); font-weight:700; margin-bottom:8px;">Full Audit Record JSON</h4>
-          <pre class="mono" style="background:#ffffff; padding:12px; border:1px solid #cbd5e1; font-size:11.5px; max-height:220px; overflow-y:auto;">${JSON.stringify(rep, null, 2)}</pre>
+          <pre class="mono" style="background:#ffffff; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:11.5px; max-height:220px; overflow-y:auto;">${JSON.stringify(rep, null, 2)}</pre>
         </div>
       `;
     }
@@ -279,7 +279,7 @@ function inspectDevice(id) {
   const body = document.getElementById('insp-body');
   body.innerHTML = `
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-      <div style="background: #f8fafc; padding: 18px; border: 1px solid #e2e8f0;">
+      <div style="background: #f8fafc; padding: 18px; border: 1px solid #e2e8f0; border-radius: 12px;">
         <h4 style="margin-bottom: 12px; color: var(--avantis-teal); font-size: 12px; text-transform: uppercase; font-weight: 800;">Hardware Profile</h4>
         <p style="font-size: 13px; margin-bottom: 6px;"><strong>Model:</strong> ${dev.model}</p>
         <p style="font-size: 13px; margin-bottom: 6px;"><strong>Serial:</strong> ${dev.serial_number || dev.id}</p>
@@ -288,7 +288,7 @@ function inspectDevice(id) {
         <p style="font-size: 13px;"><strong>GPU:</strong> ${specs.graphics ? specs.graphics.model : (specs.system && specs.system.primaryGpu ? specs.system.primaryGpu.name : 'Integrated Graphics')}</p>
       </div>
 
-      <div style="background: #f8fafc; padding: 18px; border: 1px solid #e2e8f0;">
+      <div style="background: #f8fafc; padding: 18px; border: 1px solid #e2e8f0; border-radius: 12px;">
         <h4 style="margin-bottom: 12px; color: var(--avantis-teal); font-size: 12px; text-transform: uppercase; font-weight: 800;">Telemetry Breakdown</h4>
         <p style="font-size: 13px; margin-bottom: 6px;"><strong>CPU Load / Temp:</strong> ${specs.cpu ? specs.cpu.loadPercent + '% / ' + (specs.cpu.temperatureC !== null ? specs.cpu.temperatureC + '°C' : 'N/A') : 'N/A'}</p>
         <p style="font-size: 13px; margin-bottom: 6px;"><strong>RAM Usage:</strong> ${specs.memory ? specs.memory.usedPercent + '% (' + specs.memory.usedGB + '/' + specs.memory.totalGB + ' GB)' : 'N/A'}</p>
@@ -299,7 +299,7 @@ function inspectDevice(id) {
     </div>
 
     <!-- Direct Fleet Action Controls -->
-    <div style="background: #f8fafc; padding: 18px; border: 1px solid #e2e8f0;">
+    <div style="background: #f8fafc; padding: 18px; border: 1px solid #e2e8f0; border-radius: 12px;">
       <h4 style="margin-bottom: 12px; color: var(--avantis-teal); font-size: 12px; text-transform: uppercase; font-weight: 800;">Fleet Maintenance Actions</h4>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="insp-action-buttons">
         <button class="btn-primary-sm" onclick="triggerRemoteAction('Full System Scan')">Run Full System Scan</button>
@@ -312,9 +312,9 @@ function inspectDevice(id) {
       <div id="insp-action-status" style="margin-top: 10px; font-size: 12px; color: var(--muted);"></div>
     </div>
 
-    <div style="background: #f8fafc; padding: 18px; border: 1px solid #e2e8f0;">
+    <div style="background: #f8fafc; padding: 18px; border: 1px solid #e2e8f0; border-radius: 12px;">
       <h4 style="margin-bottom: 10px; color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">Raw Telemetry JSON</h4>
-      <pre class="mono" style="background: #ffffff; padding: 14px; font-size: 11.5px; max-height: 200px; overflow-y: auto; color: #0f172a; border: 1px solid #cbd5e1;">${JSON.stringify(specs, null, 2)}</pre>
+      <pre class="mono" style="background: #ffffff; padding: 14px; font-size: 11.5px; max-height: 200px; overflow-y: auto; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px;">${JSON.stringify(specs, null, 2)}</pre>
     </div>
   `;
 

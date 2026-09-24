@@ -52,3 +52,14 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Node
+node_modules/
+package-lock.json
+
+# .NET Build Artifacts
+[Bb]in/
+[Oo]bj/
+*.user
+*.userosscache
+*.sln.docstates

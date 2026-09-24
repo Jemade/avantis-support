@@ -194,6 +194,12 @@ app.post('/api/threat/scan', (req, res) => {
   res.json({ success: true, result });
 });
 
+app.post('/api/security/scan', (req, res) => {
+  const { scanType = 'QuickScan' } = req.body || {};
+  const result = threatScanner.scan(scanType);
+  res.json({ success: true, result });
+});
+
 // 8. Audit Reports
 app.get('/api/reports', (req, res) => {
   const reports = reportStore.listReports(100);

@@ -1,0 +1,253 @@
+{
+  "reportId": "AVANTIS_2026-08-17T08-28-50-939Z",
+  "filename": "AVANTIS_2026-08-17T08-28-50-939Z.json",
+  "hostname": "AVANTIS",
+  "platform": "win32",
+  "arch": "x64",
+  "generatedAt": "2026-08-17T08:28:50.939Z",
+  "overallStatus": "PASS",
+  "summary": {
+    "passedCount": 5,
+    "warningCount": 0,
+    "failedCount": 0,
+    "totalModules": 5,
+    "updatesInstalled": 6,
+    "spaceRecoveredGb": 0.13,
+    "filesOptimized": 148,
+    "threatsRemoved": 0,
+    "summaryText": "5 passed",
+    "rebootRequired": true
+  },
+  "modules": [
+    {
+      "key": "hardware",
+      "name": "Scan Hardware",
+      "order": 1,
+      "type": "read-only",
+      "status": "PASS",
+      "summary": "All physical hardware subsystems passed OS telemetry verification.",
+      "data": {
+        "status": "PASS",
+        "timestamp": "2026-08-17T08:24:43.269Z",
+        "components": [
+          {
+            "name": "Primary Storage (Disk Health & SMART)",
+            "status": "PASS",
+            "reading": "MTFDHBL512TDQ (Health: Healthy, Operational: OK)",
+            "threshold": "HealthStatus == Healthy, SMART ReadErrors < 50",
+            "details": {
+              "friendlyName": "MTFDHBL512TDQ",
+              "healthStatus": "Healthy",
+              "operationalStatus": "OK",
+              "readErrors": 0,
+              "wearPercent": 0
+            }
+          },
+          {
+            "name": "Battery Subsystem (Health & Retention)",
+            "status": "PASS",
+            "reading": "Desktop / All-In-One (Continuous AC Mains Power)",
+            "threshold": "N/A (Stationary Power Supply)",
+            "details": {
+              "isLaptop": false
+            }
+          },
+          {
+            "name": "Physical RAM (Memory Integrity)",
+            "status": "PASS",
+            "reading": "16 GB Physical RAM across 1 channel(s) (Parity OK)",
+            "threshold": "Physical Module Detection OK",
+            "details": {
+              "totalGB": 16,
+              "moduleCount": 1,
+              "modules": [
+                {
+                  "locator": "Controller0-ChannelA-DIMM0",
+                  "speedMhz": 3200
+                }
+              ],
+              "scheduledTestQueued": false
+            }
+          },
+          {
+            "name": "Thermal Sensors (CPU / Chassis Heat)",
+            "status": "PASS",
+            "reading": "Processor Temp: 48°C (Normal Thermal Envelope)",
+            "threshold": "CPU Temp < 90°C (Warning >=90°C, Fail >=100°C)",
+            "details": {
+              "temperatureC": 48
+            }
+          }
+        ],
+        "limitationsNotice": "Hardware diagnostics are conducted using Windows OS-level telemetry (SMART, WMI, ACPI, powercfg). Proprietary pre-boot firmware diagnostics require vendor-specific pre-boot firmware environment.",
+        "summaryMessage": "All physical hardware subsystems passed OS telemetry verification."
+      }
+    },
+    {
+      "key": "threat",
+      "name": "Threat Scan",
+      "order": 2,
+      "type": "read-remediate",
+      "status": "PASS",
+      "summary": "Threat scan complete (Windows Defender): Zero active malware or security threats detected.",
+      "data": {
+        "status": "PASS",
+        "timestamp": "2026-08-17T08:25:53.013Z",
+        "scanType": "QuickScan",
+        "durationSeconds": 70,
+        "defenderStatus": {
+          "antivirusEnabled": true,
+          "realTimeProtection": true,
+          "signatureAgeDays": 0,
+          "signatureLastUpdated": "/Date(1786936191000)/",
+          "engine": "Windows Defender"
+        },
+        "signatureUpdate": {
+          "success": true,
+          "message": "Antivirus definitions updated to latest release."
+        },
+        "threatsFound": 0,
+        "threats": [],
+        "summaryMessage": "Threat scan complete (Windows Defender): Zero active malware or security threats detected."
+      }
+    },
+    {
+      "key": "drivers",
+      "name": "Update Drivers",
+      "order": 3,
+      "type": "write-install",
+      "status": "PASS",
+      "summary": "Successfully updated 6 driver(s).",
+      "data": {
+        "status": "PASS",
+        "timestamp": "2026-08-17T08:28:29.782Z",
+        "updatedCount": 6,
+        "rebootRequired": false,
+        "results": [
+          {
+            "success": true,
+            "rebootRequired": false,
+            "exitCode": 0,
+            "hardwareId": "VEN_8086&DEV_2723",
+            "deviceName": "Intel Wi-Fi 6 AX200 160MHz",
+            "installedVersion": "23.50.0.8",
+            "message": "Driver Intel Wi-Fi 6 AX200 160MHz updated successfully to version 23.50.0.8."
+          },
+          {
+            "success": true,
+            "rebootRequired": false,
+            "exitCode": 0,
+            "hardwareId": "VEN_8086&DEV_4DF0",
+            "deviceName": "Intel Wi-Fi 6 AX201 160MHz",
+            "installedVersion": "23.50.0.8",
+            "message": "Driver Intel Wi-Fi 6 AX201 160MHz updated successfully to version 23.50.0.8."
+          },
+          {
+            "success": true,
+            "rebootRequired": false,
+            "exitCode": 0,
+            "hardwareId": "VEN_10EC&DEV_8168",
+            "deviceName": "Realtek PCIe GbE Family Controller",
+            "installedVersion": "10.68.815.2023",
+            "message": "Driver Realtek PCIe GbE Family Controller updated successfully to version 10.68.815.2023."
+          },
+          {
+            "success": true,
+            "rebootRequired": false,
+            "exitCode": 0,
+            "hardwareId": "VEN_10EC&DEV_0256",
+            "deviceName": "Realtek High Definition Audio",
+            "installedVersion": "6.0.9285.1",
+            "message": "Driver Realtek High Definition Audio updated successfully to version 6.0.9285.1."
+          },
+          {
+            "success": true,
+            "rebootRequired": false,
+            "exitCode": 0,
+            "hardwareId": "VEN_8086&DEV_9BC4",
+            "deviceName": "Intel UHD Graphics 630 / Iris Xe",
+            "installedVersion": "31.0.101.5186",
+            "message": "Driver Intel UHD Graphics 630 / Iris Xe updated successfully to version 31.0.101.5186."
+          },
+          {
+            "success": true,
+            "rebootRequired": false,
+            "exitCode": 0,
+            "hardwareId": "ACPI\\VEN_AVNT&DEV_0001",
+            "deviceName": "Avantis System Motherboard Firmware (UEFI)",
+            "installedVersion": "1.08.0",
+            "message": "Driver Avantis System Motherboard Firmware (UEFI) updated successfully to version 1.08.0."
+          }
+        ],
+        "summaryMessage": "Successfully updated 6 driver(s)."
+      }
+    },
+    {
+      "key": "cleanup",
+      "name": "Clean Up Files",
+      "order": 4,
+      "type": "write-delete",
+      "status": "PASS",
+      "summary": "Cleaned 17 temporary items and reclaimed 131.27 MB storage on drive C:. SSD Volume C: TRIM optimization completed (NAND blocks trimmed).",
+      "data": {
+        "status": "PASS",
+        "cleanedTimestamp": "2026-08-17T08:28:34.596Z",
+        "beforeFreeGb": "369.01",
+        "afterFreeGb": "369.14",
+        "reclaimedBytes": 152091999,
+        "reclaimedMb": 131.27,
+        "reclaimedFiles": 17,
+        "mediaType": "SSD",
+        "systemDrive": "C:",
+        "volumeOptimizationMessage": "SSD Volume C: TRIM optimization completed (NAND blocks trimmed).",
+        "actionsTaken": [
+          "Purged 17 safe temporary and cache files.",
+          "Purged Windows Update download staging cache (SoftwareDistribution).",
+          "SSD Volume C: TRIM optimization completed (NAND blocks trimmed)."
+        ],
+        "summaryMessage": "Cleaned 17 temporary items and reclaimed 131.27 MB storage on drive C:. SSD Volume C: TRIM optimization completed (NAND blocks trimmed)."
+      }
+    },
+    {
+      "key": "network",
+      "name": "Optimize Network",
+      "order": 5,
+      "type": "write-reset",
+      "status": "PASS",
+      "summary": "Network stack reset completed. Latency metrics refreshed (Restart recommended to apply Winsock changes).",
+      "data": {
+        "status": "PASS",
+        "timestamp": "2026-08-17T08:28:50.938Z",
+        "rebootRequired": true,
+        "before": {
+          "gateway": "192.168.100.1",
+          "gatewayLatencyMs": 2,
+          "gatewayPacketLossPercent": 0,
+          "dnsLatencyMs": 22,
+          "dnsPacketLossPercent": 0,
+          "overallAvgLatencyMs": 12
+        },
+        "after": {
+          "gateway": "192.168.100.1",
+          "gatewayLatencyMs": 23,
+          "gatewayPacketLossPercent": 0,
+          "dnsLatencyMs": 45,
+          "dnsPacketLossPercent": 0,
+          "overallAvgLatencyMs": 34
+        },
+        "actionsTaken": [
+          "Flushed DNS resolver cache.",
+          "Reset Winsock catalog (Restart required for socket binding).",
+          "Reset TCP/IP stack configuration.",
+          "Disabled aggressive NIC sleep/power-save modes."
+        ],
+        "summaryMessage": "Network stack reset completed. Latency metrics refreshed (Restart recommended to apply Winsock changes)."
+      }
+    }
+  ],
+  "metadata": {
+    "agentVersion": "2.4.0",
+    "engine": "Avantis Assist Orchestrator",
+    "osRelease": "10.0.26200"
+  }
+}

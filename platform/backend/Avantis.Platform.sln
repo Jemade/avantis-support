@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{9D1F9285-26FF-4E4E-93E0-127B41B2045B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Avantis.Platform.Api", "src\Avantis.Platform.Api\Avantis.Platform.Api.csproj", "{167F025A-AA2E-4826-B947-A79BB5F83DB2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Avantis.Platform.Core", "src\Avantis.Platform.Core\Avantis.Platform.Core.csproj", "{80B5D995-AC7C-4366-97C7-D6899F198670}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Avantis.Platform.Infrastructure", "src\Avantis.Platform.Infrastructure\Avantis.Platform.Infrastructure.csproj", "{2B652BFD-A533-4B93-9DE9-C193976B23EB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{2DE502EB-CF22-40A6-AF2A-13310D4EE08F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Avantis.Platform.Tests", "tests\Avantis.Platform.Tests\Avantis.Platform.Tests.csproj", "{095670E0-6FB2-48BD-A46C-C40BD08E2239}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{167F025A-AA2E-4826-B947-A79BB5F83DB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{167F025A-AA2E-4826-B947-A79BB5F83DB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{167F025A-AA2E-4826-B947-A79BB5F83DB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{167F025A-AA2E-4826-B947-A79BB5F83DB2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80B5D995-AC7C-4366-97C7-D6899F198670}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80B5D995-AC7C-4366-97C7-D6899F198670}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80B5D995-AC7C-4366-97C7-D6899F198670}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80B5D995-AC7C-4366-97C7-D6899F198670}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2B652BFD-A533-4B93-9DE9-C193976B23EB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2B652BFD-A533-4B93-9DE9-C193976B23EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2B652BFD-A533-4B93-9DE9-C193976B23EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2B652BFD-A533-4B93-9DE9-C193976B23EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{095670E0-6FB2-48BD-A46C-C40BD08E2239}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{095670E0-6FB2-48BD-A46C-C40BD08E2239}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{095670E0-6FB2-48BD-A46C-C40BD08E2239}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{095670E0-6FB2-48BD-A46C-C40BD08E2239}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{167F025A-AA2E-4826-B947-A79BB5F83DB2} = {9D1F9285-26FF-4E4E-93E0-127B41B2045B}
+		{80B5D995-AC7C-4366-97C7-D6899F198670} = {9D1F9285-26FF-4E4E-93E0-127B41B2045B}
+		{2B652BFD-A533-4B93-9DE9-C193976B23EB} = {9D1F9285-26FF-4E4E-93E0-127B41B2045B}
+		{095670E0-6FB2-48BD-A46C-C40BD08E2239} = {2DE502EB-CF22-40A6-AF2A-13310D4EE08F}
+	EndGlobalSection
+EndGlobal

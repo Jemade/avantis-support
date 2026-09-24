@@ -1,0 +1,44 @@
+{
+  "reportId": "SIM-SIM_PC_2026-09-18T09-10-21-309Z",
+  "filename": "SIM_PC_2026-09-18T09-10-21-309Z.json",
+  "hostname": "AVANTIS-TEST-RIG",
+  "platform": "win32",
+  "arch": "x64",
+  "generatedAt": "2026-09-18T09:10:21.309Z",
+  "overallStatus": "PASS",
+  "summary": {
+    "updatesInstalled": 2,
+    "spaceRecoveredGb": 0.1,
+    "filesOptimized": 50,
+    "threatsRemoved": 0
+  },
+  "modules": [
+    {
+      "key": "hardware",
+      "name": "Scan Hardware",
+      "status": "PASS",
+      "summary": "Subsystem check complete",
+      "data": {
+        "storage": {
+          "freeGB": 80,
+          "totalGB": 200,
+          "usedPercent": 60,
+          "driveType": "NVMe SSD",
+          "smartStatus": "PASSED"
+        },
+        "cpu": {
+          "temperatureC": 40
+        }
+      }
+    },
+    {
+      "key": "threat",
+      "name": "Threat Scan",
+      "status": "PASS",
+      "summary": "0 threats detected",
+      "data": {
+        "threats": []
+      }
+    }
+  ]
+}

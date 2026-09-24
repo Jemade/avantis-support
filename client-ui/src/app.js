@@ -57,6 +57,7 @@ function routeToNav(viewId) {
     page.classList.toggle('active', page.id === `view-${targetView}`);
   });
 
+
   // Handle View-Specific Polling and Data Loading
   if (targetView === 'scanhw') {
     startLiveTelemetryPolling();
@@ -84,8 +85,14 @@ function switchHomeSubTab(tabKey) {
   const paneSummary = document.getElementById('subpane-summary');
   const paneActions = document.getElementById('subpane-actions');
 
-  if (btnSummary) btnSummary.classList.toggle('active', tabKey === 'summary');
-  if (btnActions) btnActions.classList.toggle('active', tabKey === 'actions');
+  if (btnSummary) {
+    btnSummary.classList.toggle('active', tabKey === 'summary');
+    btnSummary.setAttribute('aria-selected', tabKey === 'summary' ? 'true' : 'false');
+  }
+  if (btnActions) {
+    btnActions.classList.toggle('active', tabKey === 'actions');
+    btnActions.setAttribute('aria-selected', tabKey === 'actions' ? 'true' : 'false');
+  }
   if (paneSummary) paneSummary.classList.toggle('active', tabKey === 'summary');
   if (paneActions) paneActions.classList.toggle('active', tabKey === 'actions');
 
@@ -147,7 +154,7 @@ async function loadSummaryData() {
       if (filesEl) filesEl.innerText = filesCount;
       if (threatsEl) threatsEl.innerText = threatsCount;
 
-      if (promptEl) promptEl.style.display = 'none';
+      if (promptEl) promptEl.hidden = true;
 
       const dateStr = new Date(data.report.generatedAt).toLocaleString();
       if (metaText) metaText.innerText = `Last Completed Scan: ${dateStr}`;
@@ -172,7 +179,7 @@ async function loadSummaryData() {
       if (filesEl) filesEl.innerText = '0';
       if (threatsEl) threatsEl.innerText = '0';
 
-      if (promptEl) promptEl.style.display = 'block';
+      if (promptEl) promptEl.hidden = false;
       if (metaText) metaText.innerText = 'No scans recorded yet';
     }
 
@@ -183,6 +190,7 @@ async function loadSummaryData() {
 }
 
 // ============================================
+// ============================================
 // 3. ACTIONS TAB: 6 ACTION RUN CARDS
 // ============================================
 
@@ -190,21 +198,10 @@ async function triggerActionRun(moduleKey) {
   const btn = document.getElementById(`btn-run-${moduleKey}`);
   if (!btn) return;
 
-  const originalContent = btn.innerHTML;
-  btn.innerHTML = `
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite;">
-      <line x1="12" y1="2" x2="12" y2="6"></line>
-      <line x1="12" y1="18" x2="12" y2="22"></line>
-      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
-      <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
-      <line x1="2" y1="12" x2="6" y2="12"></line>
-      <line x1="18" y1="12" x2="22" y2="12"></line>
-      <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
-      <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
-    </svg>
-    <span>Running...</span>
-  `;
+  btn.classList.remove('is-success');
+  btn.classList.add('is-running');
   btn.disabled = true;
+  btn.innerHTML = '<span class="progress-ring" aria-hidden="true"></span><span class="btn-run-label">Running…</span>';
 
   try {
     let endpoint = '';
@@ -242,14 +239,22 @@ async function triggerActionRun(moduleKey) {
       loadSummaryData();
     }
 
-    showInfoModal('Module Execution Complete', `Successfully completed ${moduleKey.toUpperCase()} routine.`);
+    btn.classList.remove('is-running');
+    btn.classList.add('is-success');
+    btn.innerHTML = '<span class="progress-ring" aria-hidden="true"></span><span class="btn-run-label">Done</span>';
+    showInfoModal('Module complete', `Successfully completed ${moduleKey.replace(/_/g, ' ')} routine.`);
   } catch (err) {
     actionModulesState[moduleKey].status = 'FAIL';
     updateActionCardUI(moduleKey);
-    showInfoModal('Action Error', `Failed to run ${moduleKey}: ${err.message}`);
+    btn.classList.remove('is-running');
+    btn.innerHTML = '<span class="btn-run-label">Retry</span>';
+    showInfoModal('Action error', `Failed to run ${moduleKey}: ${err.message}`);
   } finally {
-    btn.innerHTML = originalContent;
-    btn.disabled = false;
+    setTimeout(() => {
+      btn.classList.remove('is-success', 'is-running');
+      btn.innerHTML = '<span class="btn-run-label">Run</span>';
+      btn.disabled = false;
+    }, 1400);
   }
 }
 
@@ -319,14 +324,21 @@ function renderLiveTelemetryGrid(diag, evalData) {
   const telBarCpu = document.getElementById('tel-bar-cpu');
   const telSubCpu = document.getElementById('tel-sub-cpu');
 
+  // Helper for telemetry bar styling
+  function getBarGradient(val, warnThresh, critThresh) {
+    if (val >= critThresh) return 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)';
+    if (val >= warnThresh) return 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)';
+    return 'linear-gradient(90deg, #0bbca8 0%, #13a3af 100%)';
+  }
+
   if (telValCpu) telValCpu.innerText = `${cpuLoad}%`;
   if (telBadgeCpu) {
     telBadgeCpu.innerText = cpuTemp !== null ? `${cpuTemp}°C` : 'Active';
-    telBadgeCpu.style.color = cpuTemp !== null && cpuTemp >= THRESHOLDS.CPU_TEMP.CRITICAL ? 'var(--status-critical)' : (cpuTemp !== null && cpuTemp >= THRESHOLDS.CPU_TEMP.WARNING ? 'var(--status-warning)' : 'var(--avantis-teal)');
+    telBadgeCpu.style.color = cpuTemp !== null && cpuTemp >= THRESHOLDS.CPU_TEMP.CRITICAL ? '#dc2626' : (cpuTemp !== null && cpuTemp >= THRESHOLDS.CPU_TEMP.WARNING ? '#d97706' : '#13a3af');
   }
   if (telBarCpu) {
     telBarCpu.style.width = `${Math.min(cpuLoad, 100)}%`;
-    telBarCpu.style.backgroundColor = cpuLoad >= THRESHOLDS.CPU_LOAD.CRITICAL ? 'var(--status-critical)' : (cpuLoad >= THRESHOLDS.CPU_LOAD.WARNING ? 'var(--status-warning)' : 'var(--status-healthy)');
+    telBarCpu.style.background = getBarGradient(cpuLoad, THRESHOLDS.CPU_LOAD.WARNING, THRESHOLDS.CPU_LOAD.CRITICAL);
   }
   if (telSubCpu) {
     const cores = sys.cpuCores || cpu.cores || 4;
@@ -347,7 +359,7 @@ function renderLiveTelemetryGrid(diag, evalData) {
   }
   if (telBarRam) {
     telBarRam.style.width = `${Math.min(ramUsed, 100)}%`;
-    telBarRam.style.backgroundColor = ramUsed >= THRESHOLDS.RAM_USAGE.CRITICAL ? 'var(--status-critical)' : (ramUsed >= THRESHOLDS.RAM_USAGE.WARNING ? 'var(--status-warning)' : 'var(--status-healthy)');
+    telBarRam.style.background = getBarGradient(ramUsed, THRESHOLDS.RAM_USAGE.WARNING, THRESHOLDS.RAM_USAGE.CRITICAL);
   }
   if (telSubRam) {
     telSubRam.innerText = `${mem.usedGB || 0} GB used of ${mem.totalGB || 8.0} GB total`;
@@ -366,7 +378,7 @@ function renderLiveTelemetryGrid(diag, evalData) {
   }
   if (telBarStorage) {
     telBarStorage.style.width = `${Math.min(storageUsed, 100)}%`;
-    telBarStorage.style.backgroundColor = storageUsed >= THRESHOLDS.STORAGE_USAGE.CRITICAL ? 'var(--status-critical)' : (storageUsed >= THRESHOLDS.STORAGE_USAGE.WARNING ? 'var(--status-warning)' : 'var(--status-healthy)');
+    telBarStorage.style.background = getBarGradient(storageUsed, THRESHOLDS.STORAGE_USAGE.WARNING, THRESHOLDS.STORAGE_USAGE.CRITICAL);
   }
   if (telSubStorage) {
     const driveType = storage.driveType || 'SSD';
@@ -385,7 +397,7 @@ function renderLiveTelemetryGrid(diag, evalData) {
     if (telBadgePower) telBadgePower.innerText = 'On Battery';
     if (telBarPower) {
       telBarPower.style.width = `${pct}%`;
-      telBarPower.style.backgroundColor = pct < 20 ? 'var(--status-critical)' : 'var(--status-healthy)';
+      telBarPower.style.background = pct < 20 ? 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(90deg, #0bbca8 0%, #13a3af 100%)';
     }
     if (telSubPower) telSubPower.innerText = `Battery power active · Health rating: ${battery.healthPercent || 100}%`;
   } else {
@@ -393,7 +405,7 @@ function renderLiveTelemetryGrid(diag, evalData) {
     if (telBadgePower) telBadgePower.innerText = 'AC Power';
     if (telBarPower) {
       telBarPower.style.width = '100%';
-      telBarPower.style.backgroundColor = 'var(--status-healthy)';
+      telBarPower.style.background = 'linear-gradient(90deg, #0bbca8 0%, #13a3af 100%)';
     }
     if (telSubPower) telSubPower.innerText = 'Connected to AC mains (Desktop / All-In-One)';
   }
@@ -406,7 +418,7 @@ function renderLiveTelemetryGrid(diag, evalData) {
 async function loadDriversPage() {
   const tbody = document.getElementById('page-drivers-table-body');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:16px;">Scanning Plug-and-Play drivers and matching against Avantis catalog...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Scanning Plug-and-Play drivers and matching against Avantis catalog...</td></tr>';
 
   try {
     const res = await fetch(`${AGENT_URL}/api/drivers/scan`, { method: 'POST' });
@@ -414,7 +426,7 @@ async function loadDriversPage() {
     const drivers = (data.result && data.result.drivers) || [];
 
     if (drivers.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:16px;">All installed hardware drivers are verified and up to date.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="table-empty">All installed hardware drivers are verified and up to date.</td></tr>';
       return;
     }
 
@@ -427,13 +439,13 @@ async function loadDriversPage() {
         <td><span class="badge-status ${d.status === 'UP_TO_DATE' ? 'badge-PASS' : 'badge-WARNING'}">${d.status}</span></td>
         <td>
           ${d.status === 'OUTDATED'
-            ? `<button class="btn-primary" style="padding:4px 10px; font-size:11.5px;" onclick="executeDriverUpdates()">Update</button>`
-            : `<span style="color:var(--status-healthy); font-weight:700; font-size:12px;">Verified</span>`}
+            ? `<button class="btn-primary btn-sm" onclick="executeDriverUpdates()">Update</button>`
+            : `<span class="badge-status badge-PASS">Verified</span>`}
         </td>
       </tr>
     `).join('');
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--status-critical); padding:16px;">Error scanning drivers: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="table-error">Error scanning drivers: ${err.message}</td></tr>`;
   }
 }
 
@@ -462,7 +474,7 @@ async function executeDriverUpdates() {
 async function loadCleanupPage() {
   const cont = document.getElementById('page-cleanup-breakdown');
   if (!cont) return;
-  cont.innerHTML = '<div style="padding:14px; color:var(--text-muted);">Analyzing volume storage and caches...</div>';
+  cont.innerHTML = '<div class="panel-soft skeleton">Analyzing volume storage and caches...</div>';
 
   try {
     const res = await fetch(`${AGENT_URL}/api/cleanup/scan`, { method: 'POST' });
@@ -470,11 +482,11 @@ async function loadCleanupPage() {
     const r = data.result || {};
 
     cont.innerHTML = `
-      <div style="padding:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; font-size:13px;">
-        <strong>Identified Reclaimable Storage:</strong> ${r.reclaimableMb || 0} MB across temporary files and staging caches.
+      <div class="panel-soft">
+        <strong>Identified reclaimable storage:</strong> ${r.reclaimableMb || 0} MB across temporary files and staging caches.
       </div>
       ${(r.itemSummaries || []).map(item => `
-        <div style="display:flex; justify-content:space-between; padding:8px 12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:4px; font-size:12.5px;">
+        <div class="kv-row">
           <span>${item.path}</span>
           <strong>${item.sizeMb} MB (${item.fileCount} files)</strong>
         </div>
@@ -503,7 +515,7 @@ async function executeCleanup() {
 
 async function executeNetworkOptimization() {
   const resultsEl = document.getElementById('page-network-results');
-  if (resultsEl) resultsEl.innerHTML = '<div style="padding:14px; text-align:center; color:var(--text-muted);">Flushing DNS, resetting Winsock, and measuring network latency...</div>';
+  if (resultsEl) resultsEl.innerHTML = '<div class="panel-soft skeleton">Flushing DNS, resetting Winsock, and measuring network latency...</div>';
 
   try {
     const res = await fetch(`${AGENT_URL}/api/network/optimize`, { method: 'POST' });
@@ -536,7 +548,7 @@ async function executeNetworkOptimization() {
             </tr>
           </tbody>
         </table>
-        ${r.rebootRequired ? '<div style="padding:8px 12px; background:#fffbeb; border:1px solid #fed7aa; border-radius:4px; font-size:12px; color:#92400e;">[Restart Recommended] Winsock catalog reset requires a system restart to fully apply socket bindings.</div>' : ''}
+        ${r.rebootRequired ? '<div style="padding:10px 14px; background:#fffbeb; border:1px solid #fed7aa; border-radius:8px; font-size:12px; color:#92400e; margin-top:8px;">[Restart Recommended] Winsock catalog reset requires a system restart to fully apply socket bindings.</div>' : ''}
       `;
     }
   } catch (err) {
@@ -588,7 +600,7 @@ async function executeThreatScan() {
     if (listEl) {
       if (r.threats && r.threats.length > 0) {
         listEl.innerHTML = r.threats.map(t => `
-          <div style="padding:10px; background:#fef2f2; border:1px solid #fca5a5; border-radius:4px; margin-bottom:6px;">
+          <div style="padding:12px; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; margin-bottom:8px;">
             <strong>[Threat Detected] ${t.threatName} (Severity ${t.severityId})</strong>
             <div style="font-size:11.5px; color:#7f1d1d;">Location: ${t.filePath}</div>
             <div style="font-size:11.5px; color:#b91c1c;">Action Taken: <strong>${t.actionTaken}</strong></div>
@@ -596,7 +608,7 @@ async function executeThreatScan() {
         `).join('');
       } else {
         listEl.innerHTML = `
-          <div style="padding:14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; color:#166534; font-size:13px; font-weight:600;">
+          <div style="padding:14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; color:#166534; font-size:13px; font-weight:600;">
             Windows Defender threat scan complete: Zero malware, rootkits, or active threats detected (${r.durationSeconds || 0}s duration).
           </div>
         `;
@@ -648,7 +660,7 @@ async function loadHistoryPage() {
     }
 
     cont.innerHTML = reports.map(r => `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px;">
         <div>
           <strong>${r.hostname}</strong> · <span style="font-size:12px; color:var(--text-muted);">${new Date(r.generatedAt).toLocaleString()}</span>
           <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">${r.summary ? r.summary.summaryText : 'Automated Scan'}</div>
@@ -871,7 +883,7 @@ async function loadAiPredictions() {
     }
 
     container.innerHTML = predictions.map(p => `
-      <div style="background:#ffffff; border:1px solid ${p.urgency === 'high' ? 'var(--status-critical-border)' : 'var(--status-warning-border)'}; border-left:4px solid ${p.urgency === 'high' ? 'var(--status-critical)' : 'var(--status-warning)'}; padding:16px 20px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="background:#ffffff; border:1px solid ${p.urgency === 'high' ? 'var(--status-critical-border)' : 'var(--status-warning-border)'}; border-left:4px solid ${p.urgency === 'high' ? 'var(--status-critical)' : 'var(--status-warning)'}; border-radius:14px; padding:16px 20px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow-sm);">
         <div>
           <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
             <span class="badge-status ${p.urgency === 'high' ? 'badge-CRITICAL' : 'badge-WARNING'}">AI Predictive Care · ${p.urgency.toUpperCase()}</span>
@@ -880,7 +892,7 @@ async function loadAiPredictions() {
           <p style="font-size:13px; color:var(--text-main); font-weight:600;">${p.explanation}</p>
         </div>
         ${p.recommendedAction && p.recommendedAction !== 'no_action_needed' ? `
-          <button type="button" class="btn-primary" style="padding:7px 16px; font-size:12.5px; white-space:nowrap; margin-left:16px;" onclick="resolveAiPrediction('${p.recommendedAction}', '${p.id}')">
+          <button type="button" class="btn-primary" style="padding:7px 16px; font-size:12.5px; white-space:nowrap; margin-left:16px; border-radius:8px;" onclick="resolveAiPrediction('${p.recommendedAction}', '${p.id}')">
             Resolve Now
           </button>
         ` : ''}

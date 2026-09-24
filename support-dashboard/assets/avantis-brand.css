@@ -1,0 +1,27 @@
+/* Avantis official typefaces — sourced from avantis.co.zw */
+@font-face {
+  font-family: 'Stereo Gothic';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_900-webfont.woff2') format('woff2'),
+       url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_900-webfont.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Stereo Gothic';
+  font-style: normal;
+  font-weight: 750;
+  font-display: swap;
+  src: url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_750-webfont.woff2') format('woff2'),
+       url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_750-webfont.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Stereo Gothic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_400-webfont.woff2') format('woff2'),
+       url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_400-webfont.woff') format('woff');
+}

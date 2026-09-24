@@ -1,0 +1,116 @@
+/* Avantis official typefaces — sourced from avantis.co.zw */
+@font-face {
+  font-family: 'Stereo Gothic';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_900-webfont.woff2') format('woff2'),
+       url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_900-webfont.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Stereo Gothic';
+  font-style: normal;
+  font-weight: 750;
+  font-display: swap;
+  src: url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_750-webfont.woff2') format('woff2'),
+       url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_750-webfont.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Stereo Gothic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_400-webfont.woff2') format('woff2'),
+       url('https://avantis.co.zw/wp-content/uploads/2020/04/stereo_gothic_w01_400-webfont.woff') format('woff');
+}
+
+:root {
+  /* Official brand — measured from avantis.co.zw */
+  --teal-50: #e8f7f8;
+  --teal-100: #c5eef1;
+  --teal-200: #98d3d8;
+  --teal-300: #82c0c7;
+  --teal-400: #3bb8c2;
+  --teal-500: #13a3af;
+  --teal-600: #0e7d87;
+  --teal-700: #0a5f66;
+  --teal-800: #074247;
+  --teal-900: #04282c;
+
+  --cta-400: #2dd4bf;
+  --cta-500: #0bbca8;
+  --cta-600: #09a392;
+  --cta-700: #078a7b;
+
+  --neutral-0: #ffffff;
+  --neutral-50: #f7fbfc;
+  --neutral-100: #eef4f5;
+  --neutral-200: #e4eef0;
+  --neutral-300: #d3e0e3;
+  --neutral-400: #999999;
+  --neutral-500: #828282;
+  --neutral-600: #666666;
+  --neutral-700: #555555;
+  --neutral-800: #333333;
+  --neutral-900: #1a1a1a;
+
+  --success: #0bbca8;
+  --success-bg: #ecfdf8;
+  --success-border: #a7f3df;
+  --warning: #d97706;
+  --warning-bg: #fffbeb;
+  --warning-border: #fcd34d;
+  --error: #dc2626;
+  --error-bg: #fef2f2;
+  --error-border: #fca5a5;
+  --info: #13a3af;
+  --info-bg: #e8f7f8;
+  --info-border: #98d3d8;
+
+  --font-hero: Arial, Helvetica, 'Open Sans', sans-serif;
+  --font-body: 'Open Sans', Arial, Helvetica, sans-serif;
+  --font-display: 'Stereo Gothic', 'Open Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --text-display: 40px;
+  --text-h1: 37px;
+  --text-h2: 25px;
+  --text-h3: 18px;
+  --text-h4: 15px;
+  --text-body: 14px;
+  --text-body-lg: 18px;
+  --text-caption: 12px;
+  --text-label: 11px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 9999px;
+
+  --shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 2px 8px rgba(19, 163, 175, 0.08);
+  --shadow-md: 0 8px 24px rgba(19, 163, 175, 0.12);
+  --shadow-lg: 0 16px 40px rgba(19, 163, 175, 0.16);
+  --shadow-cta: 0 4px 14px rgba(11, 188, 168, 0.28);
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 180ms;
+  --duration-med: 220ms;
+
+  --touch: 40px;
+  --content-max: 1240px;
+}

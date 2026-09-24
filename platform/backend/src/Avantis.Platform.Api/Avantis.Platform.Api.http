@@ -1,0 +1,6 @@
+@Avantis.Platform.Api_HostAddress = http://localhost:5219
+
+GET {{Avantis.Platform.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

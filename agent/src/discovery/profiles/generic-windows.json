@@ -1,0 +1,26 @@
+{
+  "profileId": "generic-windows",
+  "modelName": "Standard Windows PC",
+  "deviceFamily": "Generic Windows Hardware",
+  "deviceType": "generic",
+  "matchingIdentifiers": {
+    "manufacturers": ["*"],
+    "modelPatterns": ["*"],
+    "skus": ["*"]
+  },
+  "expectedCapabilities": {
+    "battery": false,
+    "batteryHealth": false,
+    "temperatureSensors": false,
+    "smartStorage": true,
+    "wifi": true,
+    "ethernet": true,
+    "bluetooth": false,
+    "camera": false,
+    "touchscreen": false,
+    "gpu": false,
+    "driverManagement": false
+  },
+  "driverCatalogKey": "GENERIC-WINDOWS",
+  "notes": "Non-Avantis PC. Generic Windows diagnostics, health telemetry, storage cleanup, and network optimization remain fully accessible."
+}

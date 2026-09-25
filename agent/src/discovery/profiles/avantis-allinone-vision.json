@@ -1,0 +1,26 @@
+{
+  "profileId": "avantis-allinone-vision",
+  "modelName": "Avantis All-in-One Vision 24",
+  "deviceFamily": "Avantis Vision Series",
+  "deviceType": "all-in-one",
+  "matchingIdentifiers": {
+    "manufacturers": ["Avantis", "Avantis Technologies", "Avantis Technologies Africa"],
+    "modelPatterns": ["Vision 24", "All-in-One Vision", "AVT-AIO-VIS24", "Avantis AIO"],
+    "skus": ["AVT-SKU-AIO24-01"]
+  },
+  "expectedCapabilities": {
+    "battery": false,
+    "batteryHealth": false,
+    "temperatureSensors": true,
+    "smartStorage": true,
+    "wifi": true,
+    "ethernet": true,
+    "bluetooth": true,
+    "camera": true,
+    "touchscreen": true,
+    "gpu": false,
+    "driverManagement": true
+  },
+  "driverCatalogKey": "AVT-CAT-AIOVISION24",
+  "notes": "23.8-inch borderless all-in-one workstation with integrated touch panel, pop-up camera, and AC mains power."
+}

@@ -1,0 +1,26 @@
+{
+  "profileId": "avantis-desktop-pro",
+  "modelName": "Avantis Desktop Pro X",
+  "deviceFamily": "Avantis Pro Station",
+  "deviceType": "desktop",
+  "matchingIdentifiers": {
+    "manufacturers": ["Avantis", "Avantis Technologies", "Avantis Technologies Africa"],
+    "modelPatterns": ["Desktop Pro", "Pro X", "AVT-DSK-PROX", "Avantis Station"],
+    "skus": ["AVT-SKU-DSKPRO-01", "AVT-SKU-DSKPRO-02"]
+  },
+  "expectedCapabilities": {
+    "battery": false,
+    "batteryHealth": false,
+    "temperatureSensors": true,
+    "smartStorage": true,
+    "wifi": true,
+    "ethernet": true,
+    "bluetooth": true,
+    "camera": false,
+    "touchscreen": false,
+    "gpu": true,
+    "driverManagement": true
+  },
+  "driverCatalogKey": "AVT-CAT-DESKTOPPRO",
+  "notes": "High-performance enterprise desktop workstation. Operates on continuous AC mains power."
+}

@@ -21,15 +21,40 @@ let liveTelemetryTimer = null;
 let latestStoredReport = null;
 let liveDiagnosticsCache = null;
 
+function hasValue(val) {
+  return val !== null && val !== undefined && val !== '' && !isNaN(val);
+}
+
+function getStoredLastRun(key) {
+  try { return localStorage.getItem('avantis_lastrun_' + key) || null; } catch { return null; }
+}
+
+function getStoredStatus(key) {
+  try { return localStorage.getItem('avantis_status_' + key) || 'NEVER'; } catch { return 'NEVER'; }
+}
+
 // Track last run status for 6 Action cards
 const actionModulesState = {
-  fullscan: { lastRun: null, status: 'NEVER' },
-  drivers: { lastRun: null, status: 'NEVER' },
-  scanhw: { lastRun: null, status: 'NEVER' },
-  cleanup: { lastRun: null, status: 'NEVER' },
-  network: { lastRun: null, status: 'NEVER' },
-  threat: { lastRun: null, status: 'NEVER' }
+  fullscan: { lastRun: getStoredLastRun('fullscan'), status: getStoredStatus('fullscan') },
+  drivers: { lastRun: getStoredLastRun('drivers'), status: getStoredStatus('drivers') },
+  scanhw: { lastRun: getStoredLastRun('scanhw'), status: getStoredStatus('scanhw') },
+  cleanup: { lastRun: getStoredLastRun('cleanup'), status: getStoredStatus('cleanup') },
+  network: { lastRun: getStoredLastRun('network'), status: getStoredStatus('network') },
+  threat: { lastRun: getStoredLastRun('threat'), status: getStoredStatus('threat') }
 };
+
+function recordActionRun(moduleKey, status = 'PASS') {
+  const timestampStr = new Date().toLocaleString();
+  if (actionModulesState[moduleKey]) {
+    actionModulesState[moduleKey].lastRun = timestampStr;
+    actionModulesState[moduleKey].status = status;
+  }
+  try {
+    localStorage.setItem('avantis_lastrun_' + moduleKey, timestampStr);
+    localStorage.setItem('avantis_status_' + moduleKey, status);
+  } catch {}
+  updateActionCardUI(moduleKey);
+}
 
 // ============================================
 // 1. ROUTING & NAVIGATION
@@ -157,20 +182,31 @@ async function loadSummaryData() {
       if (promptEl) promptEl.hidden = true;
 
       const dateStr = new Date(data.report.generatedAt).toLocaleString();
-      if (metaText) metaText.innerText = `Last Completed Scan: ${dateStr}`;
-
       const status = data.report.overallStatus || 'PASS';
 
-      // Update Full Scan action card state
-      actionModulesState.fullscan.lastRun = dateStr;
-      actionModulesState.fullscan.status = status;
-      updateActionCardUI('fullscan');
+      // Update Action cards state from report if not already set individually
+      const moduleKeyMap = {
+        hardware: 'scanhw',
+        drivers: 'drivers',
+        cleanup: 'cleanup',
+        network: 'network',
+        threat: 'threat'
+      };
 
-      // Update Service Tag
-      const sTag = document.getElementById('header-service-tag');
-      if (sTag && data.report.hostname) {
-        sTag.innerText = data.report.hostname;
+      if (!actionModulesState.fullscan.lastRun) {
+        actionModulesState.fullscan.lastRun = dateStr;
+        actionModulesState.fullscan.status = status;
       }
+
+      mods.forEach(m => {
+        const modKey = moduleKeyMap[m.key];
+        if (modKey && !actionModulesState[modKey].lastRun) {
+          actionModulesState[modKey].lastRun = dateStr;
+          actionModulesState[modKey].status = m.status || status;
+        }
+      });
+
+      ['fullscan', 'drivers', 'scanhw', 'cleanup', 'network', 'threat'].forEach(updateActionCardUI);
 
     } else {
       // No report ever run
@@ -228,14 +264,11 @@ async function triggerActionRun(moduleKey) {
 
     const res = await fetch(`${AGENT_URL}${endpoint}`, options);
     const data = await res.json();
-
-    const timestampStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    actionModulesState[moduleKey].lastRun = timestampStr;
-    actionModulesState[moduleKey].status = (data.result && data.result.overallStatus) || (data.success ? 'PASS' : 'WARNING');
-
-    updateActionCardUI(moduleKey);
+    const ok = (data.result && data.result.overallStatus) || (data.success ? 'PASS' : 'WARNING');
+    recordActionRun(moduleKey, ok);
 
     if (moduleKey === 'fullscan') {
+      ['drivers', 'scanhw', 'cleanup', 'network', 'threat'].forEach(k => recordActionRun(k, ok));
       loadSummaryData();
     }
 
@@ -244,8 +277,7 @@ async function triggerActionRun(moduleKey) {
     btn.innerHTML = '<span class="progress-ring" aria-hidden="true"></span><span class="btn-run-label">Done</span>';
     showInfoModal('Module complete', `Successfully completed ${moduleKey.replace(/_/g, ' ')} routine.`);
   } catch (err) {
-    actionModulesState[moduleKey].status = 'FAIL';
-    updateActionCardUI(moduleKey);
+    recordActionRun(moduleKey, 'FAIL');
     btn.classList.remove('is-running');
     btn.innerHTML = '<span class="btn-run-label">Retry</span>';
     showInfoModal('Action error', `Failed to run ${moduleKey}: ${err.message}`);
@@ -290,124 +322,250 @@ function stopLiveTelemetryPolling() {
   }
 }
 
+function applyAuthorizationUI(auth) {
+  const authAlert = document.getElementById('device-auth-alert');
+  const authText = document.getElementById('device-auth-alert-text');
+  if (!authAlert || !auth) return;
+
+  const status = auth.status || 'UNENROLLED';
+
+  if (status === 'REVOKED') {
+    authAlert.style.display = 'flex';
+    authAlert.style.background = '#fef2f2';
+    authAlert.style.borderColor = '#fca5a5';
+    authAlert.style.color = '#991b1b';
+    if (authText) authText.innerText = auth.revocationReason || 'Device Authorization Revoked — This machine is not authorized to use Avantis Support services.';
+  } else if (status === 'UNENROLLED') {
+    authAlert.style.display = 'flex';
+    authAlert.style.background = '#fffbeb';
+    authAlert.style.borderColor = '#fde68a';
+    authAlert.style.color = '#92400e';
+    if (authText) authText.innerText = 'Device Enrollment Required — This Windows PC has not been enrolled into the Avantis Registry. Contact Avantis Support to provision this PC.';
+  } else if (status === 'NOT_AUTHORIZED') {
+    authAlert.style.display = 'flex';
+    authAlert.style.background = '#fef2f2';
+    authAlert.style.borderColor = '#fca5a5';
+    authAlert.style.color = '#991b1b';
+    if (authText) authText.innerText = 'Device Authorization Invalid — Hardware credentials could not be validated with Avantis Support.';
+  } else if (status === 'OFFLINE') {
+    authAlert.style.display = 'flex';
+    authAlert.style.background = '#f0fdfa';
+    authAlert.style.borderColor = '#99f6e4';
+    authAlert.style.color = '#0f766e';
+    if (authText) authText.innerText = 'Offline Mode Active — Local Windows hardware diagnostics are available. Cloud synchronization will resume once online.';
+  } else if (status === 'AUTHORIZED') {
+    authAlert.style.display = 'none';
+  }
+}
+
+async function fetchDeviceIdentity() {
+  try {
+    const res = await fetch(`${AGENT_URL}/api/device`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.device) {
+      const headerModel = document.getElementById('header-device-model');
+      if (headerModel) headerModel.innerText = data.device.displayName || 'Windows PC';
+    }
+    if (data && data.authorization) {
+      applyAuthorizationUI(data.authorization);
+    }
+  } catch (err) {
+    console.warn('[DeviceIdentity] Error fetching device identity:', err.message);
+  }
+}
+
 async function fetchLiveHardwareTelemetry() {
+  const offlineAlert = document.getElementById('agent-offline-alert');
   try {
     const res = await fetch(`${AGENT_URL}/api/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (!data || !data.diagnostics) return;
+
+    if (offlineAlert) offlineAlert.style.display = 'none';
+    if (data.authorization) applyAuthorizationUI(data.authorization);
 
     liveDiagnosticsCache = data.diagnostics;
     renderLiveTelemetryGrid(data.diagnostics, data.evaluation);
   } catch (err) {
     console.warn('[Telemetry] Polling error:', err.message);
+    if (offlineAlert) offlineAlert.style.display = 'flex';
   }
 }
 
 function renderLiveTelemetryGrid(diag, evalData) {
+  if (!diag) return;
   const cpu = diag.cpu || {};
   const sys = diag.system || {};
   const mem = diag.memory || {};
   const storage = diag.storage || {};
   const battery = diag.battery || {};
+  const device = diag.device || {};
+  const capabilities = diag.capabilities || {};
 
-  const sTag = document.getElementById('header-service-tag');
-  if (sTag && sys.hostname) {
-    sTag.innerText = sys.hostname;
+  // Discovered Device Header Badge (Model only, green dot preserved)
+  const headerModel = document.getElementById('header-device-model');
+  if (headerModel) {
+    headerModel.innerText = device.displayName || sys.model || 'Windows PC';
   }
 
-  // 1. PROCESSOR CARD
-  const cpuLoad = typeof cpu.loadPercent === 'number' ? cpu.loadPercent : 0;
-  const cpuTemp = typeof cpu.temperatureC === 'number' ? cpu.temperatureC : null;
-
-  const telValCpu = document.getElementById('tel-val-cpu');
-  const telBadgeCpu = document.getElementById('tel-badge-cpu');
-  const telBarCpu = document.getElementById('tel-bar-cpu');
-  const telSubCpu = document.getElementById('tel-sub-cpu');
-
-  // Helper for telemetry bar styling
+  // Helper for telemetry bar gradient styling
   function getBarGradient(val, warnThresh, critThresh) {
     if (val >= critThresh) return 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)';
     if (val >= warnThresh) return 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)';
     return 'linear-gradient(90deg, #0bbca8 0%, #13a3af 100%)';
   }
 
-  if (telValCpu) telValCpu.innerText = `${cpuLoad}%`;
+  // 1. PROCESSOR CARD
+  const telValCpu = document.getElementById('tel-val-cpu');
+  const telBadgeCpu = document.getElementById('tel-badge-cpu');
+  const telBarCpu = document.getElementById('tel-bar-cpu');
+  const telSubCpu = document.getElementById('tel-sub-cpu');
+
+  if (hasValue(cpu.loadPercent)) {
+    if (telValCpu) telValCpu.innerText = `${cpu.loadPercent}%`;
+    if (telBarCpu) {
+      telBarCpu.style.width = `${Math.min(cpu.loadPercent, 100)}%`;
+      telBarCpu.style.background = getBarGradient(cpu.loadPercent, THRESHOLDS.CPU_LOAD.WARNING, THRESHOLDS.CPU_LOAD.CRITICAL);
+    }
+  } else {
+    if (telValCpu) telValCpu.innerText = 'Unavailable';
+    if (telBarCpu) telBarCpu.style.width = '0%';
+  }
+
   if (telBadgeCpu) {
-    telBadgeCpu.innerText = cpuTemp !== null ? `${cpuTemp}°C` : 'Active';
-    telBadgeCpu.style.color = cpuTemp !== null && cpuTemp >= THRESHOLDS.CPU_TEMP.CRITICAL ? '#dc2626' : (cpuTemp !== null && cpuTemp >= THRESHOLDS.CPU_TEMP.WARNING ? '#d97706' : '#13a3af');
+    if (cpu.temperatureSupported && hasValue(cpu.temperatureC)) {
+      telBadgeCpu.innerText = `${cpu.temperatureC}°C`;
+      telBadgeCpu.style.color = cpu.temperatureC >= THRESHOLDS.CPU_TEMP.CRITICAL 
+        ? '#dc2626' 
+        : (cpu.temperatureC >= THRESHOLDS.CPU_TEMP.WARNING ? '#d97706' : '#13a3af');
+    } else {
+      telBadgeCpu.innerText = 'Active';
+      telBadgeCpu.style.color = 'var(--text-muted)';
+    }
   }
-  if (telBarCpu) {
-    telBarCpu.style.width = `${Math.min(cpuLoad, 100)}%`;
-    telBarCpu.style.background = getBarGradient(cpuLoad, THRESHOLDS.CPU_LOAD.WARNING, THRESHOLDS.CPU_LOAD.CRITICAL);
-  }
+
   if (telSubCpu) {
-    const cores = sys.cpuCores || cpu.cores || 4;
-    const threads = sys.cpuThreads || cpu.threads || cores;
-    telSubCpu.innerText = `${cores} cores, ${threads} logical processors · Operating at ${cpuTemp !== null ? cpuTemp + '°C' : 'normal thermal profile'}`;
+    const cores = sys.cpuCores || 1;
+    const threads = sys.cpuThreads || cores;
+    const tempText = (cpu.temperatureSupported && hasValue(cpu.temperatureC)) 
+      ? `Operating at ${cpu.temperatureC}°C` 
+      : 'Thermal sensor unavailable';
+    telSubCpu.innerText = `${cores} cores, ${threads} logical processors · ${tempText}`;
   }
 
   // 2. INSTALLED MEMORY CARD
-  const ramUsed = typeof mem.usedPercent === 'number' ? mem.usedPercent : 0;
   const telValRam = document.getElementById('tel-val-ram');
   const telBadgeRam = document.getElementById('tel-badge-ram');
   const telBarRam = document.getElementById('tel-bar-ram');
   const telSubRam = document.getElementById('tel-sub-ram');
 
-  if (telValRam) telValRam.innerText = `${ramUsed}%`;
-  if (telBadgeRam) {
-    telBadgeRam.innerText = `${mem.totalGB || 8.0} GB RAM`;
-  }
-  if (telBarRam) {
-    telBarRam.style.width = `${Math.min(ramUsed, 100)}%`;
-    telBarRam.style.background = getBarGradient(ramUsed, THRESHOLDS.RAM_USAGE.WARNING, THRESHOLDS.RAM_USAGE.CRITICAL);
-  }
-  if (telSubRam) {
-    telSubRam.innerText = `${mem.usedGB || 0} GB used of ${mem.totalGB || 8.0} GB total`;
+  if (hasValue(mem.usedPercent)) {
+    if (telValRam) telValRam.innerText = `${mem.usedPercent}%`;
+    if (telBarRam) {
+      telBarRam.style.width = `${Math.min(mem.usedPercent, 100)}%`;
+      telBarRam.style.background = getBarGradient(mem.usedPercent, THRESHOLDS.RAM_USAGE.WARNING, THRESHOLDS.RAM_USAGE.CRITICAL);
+    }
+  } else {
+    if (telValRam) telValRam.innerText = 'Unavailable';
+    if (telBarRam) telBarRam.style.width = '0%';
   }
 
-  // 3. PRIMARY STORAGE CARD
-  const storageUsed = typeof storage.usedPercent === 'number' ? storage.usedPercent : 0;
+  if (telBadgeRam) {
+    telBadgeRam.innerText = hasValue(mem.totalGB) ? `${mem.totalGB} GB RAM` : 'RAM';
+  }
+  if (telSubRam) {
+    const usedText = hasValue(mem.usedGB) ? `${mem.usedGB} GB used` : 'Memory in use';
+    const totalText = hasValue(mem.totalGB) ? `of ${mem.totalGB} GB total` : '';
+    telSubRam.innerText = `${usedText} ${totalText}`.trim();
+  }
+
+  // 3. STORAGE CARD (Physical disks & Multi-volume support)
+  const telTitleStorage = document.getElementById('tel-title-storage');
   const telValStorage = document.getElementById('tel-val-storage');
   const telBadgeStorage = document.getElementById('tel-badge-storage');
   const telBarStorage = document.getElementById('tel-bar-storage');
   const telSubStorage = document.getElementById('tel-sub-storage');
 
-  if (telValStorage) telValStorage.innerText = `${storageUsed}%`;
-  if (telBadgeStorage) {
-    telBadgeStorage.innerText = storage.smartStatus === 'PASSED' ? 'SMART Passed' : (storage.smartStatus || 'SMART Health OK');
-  }
-  if (telBarStorage) {
-    telBarStorage.style.width = `${Math.min(storageUsed, 100)}%`;
-    telBarStorage.style.background = getBarGradient(storageUsed, THRESHOLDS.STORAGE_USAGE.WARNING, THRESHOLDS.STORAGE_USAGE.CRITICAL);
-  }
-  if (telSubStorage) {
-    const driveType = storage.driveType || 'SSD';
-    telSubStorage.innerText = `${storage.freeGB || 0} GB free of ${storage.totalGB || 0} GB (${driveType})`;
+  if (telTitleStorage) {
+    telTitleStorage.innerText = storage.volumes && storage.volumes.length > 1 ? 'Primary Storage & Volumes' : 'Primary Storage';
   }
 
-  // 4. POWER SUPPLY (PSU) CARD
+  if (hasValue(storage.usedPercent)) {
+    if (telValStorage) telValStorage.innerText = `${storage.usedPercent}%`;
+    if (telBarStorage) {
+      telBarStorage.style.width = `${Math.min(storage.usedPercent, 100)}%`;
+      telBarStorage.style.background = getBarGradient(storage.usedPercent, THRESHOLDS.STORAGE_USAGE.WARNING, THRESHOLDS.STORAGE_USAGE.CRITICAL);
+    }
+  } else {
+    if (telValStorage) telValStorage.innerText = 'Unavailable';
+    if (telBarStorage) telBarStorage.style.width = '0%';
+  }
+
+  if (telBadgeStorage) {
+    if (storage.smartStatus && storage.smartStatus !== 'UNAVAILABLE' && storage.smartStatus !== 'UNKNOWN') {
+      telBadgeStorage.innerText = `SMART: ${storage.smartStatus}`;
+      telBadgeStorage.style.color = storage.smartStatus === 'HEALTHY' ? '#166534' : '#dc2626';
+    } else {
+      telBadgeStorage.innerText = 'Health Unavailable';
+      telBadgeStorage.style.color = 'var(--text-muted)';
+    }
+  }
+
+  if (telSubStorage) {
+    if (storage.volumes && storage.volumes.length > 0) {
+      const volSummaries = storage.volumes.map(v => `${v.mount} (${v.freeGB} GB free of ${v.totalGB} GB)`);
+      telSubStorage.innerText = volSummaries.join(' · ');
+    } else if (hasValue(storage.freeGB) && hasValue(storage.totalGB)) {
+      telSubStorage.innerText = `${storage.freeGB} GB free of ${storage.totalGB} GB (${storage.driveType || 'Drive'})`;
+    } else {
+      telSubStorage.innerText = 'Storage partition telemetry not reported';
+    }
+  }
+
+  // 4. POWER SUBSYSTEM CARD (Dynamic Laptop vs Stationary Desktop Capability)
+  const telTitlePower = document.getElementById('tel-title-power');
   const telValPower = document.getElementById('tel-val-power');
   const telBadgePower = document.getElementById('tel-badge-power');
   const telBarPower = document.getElementById('tel-bar-power');
   const telSubPower = document.getElementById('tel-sub-power');
 
   if (battery.hasBattery) {
-    const pct = battery.currentPercent || 100;
-    if (telValPower) telValPower.innerText = `${pct}%`;
-    if (telBadgePower) telBadgePower.innerText = 'On Battery';
-    if (telBarPower) {
-      telBarPower.style.width = `${pct}%`;
-      telBarPower.style.background = pct < 20 ? 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(90deg, #0bbca8 0%, #13a3af 100%)';
+    if (telTitlePower) telTitlePower.innerText = 'Battery & Power';
+    const pct = hasValue(battery.currentPercent) ? battery.currentPercent : null;
+
+    if (telValPower) telValPower.innerText = pct !== null ? `${pct}%` : 'Active';
+    if (telBadgePower) {
+      telBadgePower.innerText = battery.isCharging ? 'Charging' : 'On Battery';
+      telBadgePower.style.color = battery.isCharging ? '#166534' : '#13a3af';
     }
-    if (telSubPower) telSubPower.innerText = `Battery power active · Health rating: ${battery.healthPercent || 100}%`;
+    if (telBarPower) {
+      const widthVal = pct !== null ? pct : 100;
+      telBarPower.style.width = `${Math.min(widthVal, 100)}%`;
+      telBarPower.style.background = (pct !== null && pct < 20) 
+        ? 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)' 
+        : 'linear-gradient(90deg, #0bbca8 0%, #13a3af 100%)';
+    }
+    if (telSubPower) {
+      const healthText = hasValue(battery.healthPercent) ? ` · Health retention: ${battery.healthPercent}%` : '';
+      telSubPower.innerText = `${battery.isCharging ? 'AC adapter charging battery' : 'Running on internal battery'}${healthText}`;
+    }
   } else {
+    // Desktop / All-In-One / Mini PC with no battery
+    if (telTitlePower) telTitlePower.innerText = 'Power Supply (AC)';
     if (telValPower) telValPower.innerText = 'AC Mains';
-    if (telBadgePower) telBadgePower.innerText = 'AC Power';
+    if (telBadgePower) {
+      telBadgePower.innerText = 'AC Connected';
+      telBadgePower.style.color = '#166534';
+    }
     if (telBarPower) {
       telBarPower.style.width = '100%';
       telBarPower.style.background = 'linear-gradient(90deg, #0bbca8 0%, #13a3af 100%)';
     }
-    if (telSubPower) telSubPower.innerText = 'Connected to AC mains (Desktop / All-In-One)';
+    if (telSubPower) {
+      telSubPower.innerText = 'Stationary system operating on continuous AC mains power supply';
+    }
   }
 }
 
@@ -430,20 +588,27 @@ async function loadDriversPage() {
       return;
     }
 
-    tbody.innerHTML = drivers.map((d, i) => `
-      <tr>
-        <td><strong>${d.component}</strong></td>
-        <td>${d.deviceName}</td>
-        <td><code>${d.currentVersion}</code></td>
-        <td><code>${d.latestVersion}</code></td>
-        <td><span class="badge-status ${d.status === 'UP_TO_DATE' ? 'badge-PASS' : 'badge-WARNING'}">${d.status}</span></td>
-        <td>
-          ${d.status === 'OUTDATED'
-            ? `<button class="btn-primary btn-sm" onclick="executeDriverUpdates()">Update</button>`
-            : `<span class="badge-status badge-PASS">Verified</span>`}
-        </td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = drivers.map((d, i) => {
+      const isOutdated = d.status === 'OUTDATED';
+      const isNoAvantis = d.status === 'NO_AVANTIS_DRIVER';
+      const badgeCls = isOutdated ? 'badge-OUTDATED' : (isNoAvantis ? 'badge-NO_AVANTIS_DRIVER' : 'badge-PASS');
+      const statusLabel = isNoAvantis ? 'OEM Verified' : d.status;
+
+      return `
+        <tr>
+          <td><strong>${d.component}</strong></td>
+          <td>${d.deviceName}</td>
+          <td><code>${d.currentVersion}</code></td>
+          <td><code>${d.latestVersion}</code></td>
+          <td><span class="badge-status ${badgeCls}">${statusLabel}</span></td>
+          <td>
+            ${isOutdated
+              ? `<button class="btn-primary btn-sm" onclick="executeDriverUpdates()">Update</button>`
+              : `<span class="badge-status badge-PASS">Verified</span>`}
+          </td>
+        </tr>
+      `;
+    }).join('');
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="6" class="table-error">Error scanning drivers: ${err.message}</td></tr>`;
   }
@@ -459,9 +624,11 @@ async function executeDriverUpdates() {
   try {
     const res = await fetch(`${AGENT_URL}/api/drivers/update-all`, { method: 'POST' });
     const data = await res.json();
+    recordActionRun('drivers', 'PASS');
     showInfoModal('Driver Updates', data.result ? data.result.summaryMessage : 'Driver catalog updated.');
     loadDriversPage();
   } catch (err) {
+    recordActionRun('drivers', 'FAIL');
     showInfoModal('Driver Update Error', err.message);
   } finally {
     if (btn) {
@@ -506,9 +673,11 @@ async function executeCleanup() {
       body: JSON.stringify({ includeRecycleBin: includeRecycle, runVolumeOptimization: true })
     });
     const data = await res.json();
+    recordActionRun('cleanup', 'PASS');
     showInfoModal('System Cleanup Complete', data.result ? data.result.summaryMessage : 'Storage cleaned successfully.');
     loadCleanupPage();
   } catch (err) {
+    recordActionRun('cleanup', 'FAIL');
     showInfoModal('Cleanup Error', err.message);
   }
 }
@@ -521,13 +690,21 @@ async function executeNetworkOptimization() {
     const res = await fetch(`${AGENT_URL}/api/network/optimize`, { method: 'POST' });
     const data = await res.json();
     const r = data.result || {};
+    recordActionRun('network', 'PASS');
 
     if (resultsEl && r.before && r.after) {
+      const gwBefore = r.before.gatewayLatencyMs !== null ? `${r.before.gatewayLatencyMs} ms` : 'N/A';
+      const gwAfter = r.after.gatewayLatencyMs !== null ? `${r.after.gatewayLatencyMs} ms` : 'N/A';
+      const dnsBefore = r.before.dnsLatencyMs !== null ? `${r.before.dnsLatencyMs} ms` : 'N/A';
+      const dnsAfter = r.after.dnsLatencyMs !== null ? `${r.after.dnsLatencyMs} ms` : 'N/A';
+      const refBefore = r.before.publicReferenceLatencyMs !== null ? `${r.before.publicReferenceLatencyMs} ms` : 'N/A';
+      const refAfter = r.after.publicReferenceLatencyMs !== null ? `${r.after.publicReferenceLatencyMs} ms` : 'N/A';
+
       resultsEl.innerHTML = `
         <table class="detail-table" style="margin-bottom:12px;">
           <thead>
             <tr>
-              <th>Target</th>
+              <th>Diagnostic Target</th>
               <th>Before Latency / Loss</th>
               <th>After Latency / Loss</th>
               <th>Status</th>
@@ -535,15 +712,21 @@ async function executeNetworkOptimization() {
           </thead>
           <tbody>
             <tr>
-              <td><strong>Default Gateway</strong></td>
-              <td>${r.before.gatewayLatencyMs} ms (${r.before.gatewayPacketLossPercent}% loss)</td>
-              <td style="color:var(--status-healthy); font-weight:700;">${r.after.gatewayLatencyMs} ms (${r.after.gatewayPacketLossPercent}% loss)</td>
+              <td><strong>Default Gateway (${r.before.gateway || 'Local Network'})</strong></td>
+              <td>${gwBefore} (${r.before.gatewayPacketLossPercent || 0}% loss)</td>
+              <td style="color:var(--status-healthy); font-weight:700;">${gwAfter} (${r.after.gatewayPacketLossPercent || 0}% loss)</td>
               <td><span class="badge-status badge-PASS">Verified</span></td>
             </tr>
             <tr>
-              <td><strong>DNS Root (8.8.8.8)</strong></td>
-              <td>${r.before.dnsLatencyMs} ms (${r.before.dnsPacketLossPercent}% loss)</td>
-              <td style="color:var(--status-healthy); font-weight:700;">${r.after.dnsLatencyMs} ms (${r.after.dnsPacketLossPercent}% loss)</td>
+              <td><strong>Configured DNS (${r.before.configuredDns || 'OS Resolver'})</strong></td>
+              <td>${dnsBefore} (${r.before.dnsPacketLossPercent || 0}% loss)</td>
+              <td style="color:var(--status-healthy); font-weight:700;">${dnsAfter} (${r.after.dnsPacketLossPercent || 0}% loss)</td>
+              <td><span class="badge-status badge-PASS">Verified</span></td>
+            </tr>
+            <tr>
+              <td><strong>Public Diagnostic Resolver (${r.before.publicReference || '1.1.1.1'})</strong></td>
+              <td>${refBefore} (${r.before.publicReferencePacketLossPercent || 0}% loss)</td>
+              <td style="color:var(--status-healthy); font-weight:700;">${refAfter} (${r.after.publicReferencePacketLossPercent || 0}% loss)</td>
               <td><span class="badge-status badge-PASS">Verified</span></td>
             </tr>
           </tbody>
@@ -552,6 +735,7 @@ async function executeNetworkOptimization() {
       `;
     }
   } catch (err) {
+    recordActionRun('network', 'FAIL');
     showInfoModal('Network Error', err.message);
   }
 }
@@ -565,6 +749,23 @@ async function loadThreatPage() {
     const data = await res.json();
     const s = data.status || {};
 
+    if (s.available === false) {
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+          <strong>Antivirus Engine:</strong>
+          <span style="color:var(--text-muted); font-weight:600;">Unavailable</span>
+        </div>
+        <div style="font-size:12px; color:var(--text-muted); line-height:1.5;">
+          ${s.reason || 'Windows Defender security services are only available on Microsoft Windows installations.'}
+        </div>
+      `;
+      return;
+    }
+
+    const sigText = s.signatureAgeDays === null 
+      ? 'Unknown' 
+      : (s.signatureAgeDays === 0 ? 'Up to date (Today)' : `${s.signatureAgeDays} day(s) old`);
+
     card.innerHTML = `
       <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
         <strong>Antivirus Engine:</strong>
@@ -576,7 +777,7 @@ async function loadThreatPage() {
       </div>
       <div style="display:flex; justify-content:space-between;">
         <span>Signature Age:</span>
-        <span>${s.signatureAgeDays === 0 ? 'Up to date (Today)' : `${s.signatureAgeDays} day(s) old`}</span>
+        <span>${sigText}</span>
       </div>
     `;
   } catch (err) {
@@ -596,9 +797,16 @@ async function executeThreatScan() {
     });
     const data = await res.json();
     const r = data.result || {};
+    recordActionRun('threat', (r.threats && r.threats.length > 0) ? 'WARNING' : 'PASS');
 
     if (listEl) {
-      if (r.threats && r.threats.length > 0) {
+      if (r.available === false) {
+        listEl.innerHTML = `
+          <div style="padding:14px; background:var(--neutral-50); border:1px solid var(--neutral-200); border-radius:10px; color:var(--text-muted); font-size:13px;">
+            ${r.summaryMessage || 'Windows Defender is not available on this platform.'}
+          </div>
+        `;
+      } else if (r.threats && r.threats.length > 0) {
         listEl.innerHTML = r.threats.map(t => `
           <div style="padding:12px; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; margin-bottom:8px;">
             <strong>[Threat Detected] ${t.threatName} (Severity ${t.severityId})</strong>
@@ -615,6 +823,7 @@ async function executeThreatScan() {
       }
     }
   } catch (err) {
+    recordActionRun('threat', 'FAIL');
     showInfoModal('Threat Scan Error', err.message);
   }
 }
@@ -886,7 +1095,7 @@ async function loadAiPredictions() {
       <div style="background:#ffffff; border:1px solid ${p.urgency === 'high' ? 'var(--status-critical-border)' : 'var(--status-warning-border)'}; border-left:4px solid ${p.urgency === 'high' ? 'var(--status-critical)' : 'var(--status-warning)'}; border-radius:14px; padding:16px 20px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow-sm);">
         <div>
           <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-            <span class="badge-status ${p.urgency === 'high' ? 'badge-CRITICAL' : 'badge-WARNING'}">AI Predictive Care · ${p.urgency.toUpperCase()}</span>
+            <img src="assets/avantis-icon.svg" alt="Avantis" style="width:20px; height:20px; object-fit:contain; flex-shrink:0; display:inline-block;">
             <span style="font-size:11.5px; color:var(--text-muted);">${new Date(p.detectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
           <p style="font-size:13px; color:var(--text-main); font-weight:600;">${p.explanation}</p>
@@ -985,5 +1194,7 @@ if (chatInputEl && chatSendBtnEl) {
 }
 
 // Initial Bootstrap on load
+['fullscan', 'drivers', 'scanhw', 'cleanup', 'network', 'threat'].forEach(updateActionCardUI);
+fetchDeviceIdentity();
 loadSummaryData();
 fetchLiveHardwareTelemetry();

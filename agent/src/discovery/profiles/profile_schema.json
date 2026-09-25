@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AvantisDeviceProfile",
+  "type": "object",
+  "required": ["profileId", "modelName", "deviceFamily", "deviceType", "expectedCapabilities"],
+  "properties": {
+    "profileId": { "type": "string" },
+    "modelName": { "type": "string" },
+    "deviceFamily": { "type": "string" },
+    "deviceType": { 
+      "type": "string",
+      "enum": ["laptop", "desktop", "all-in-one", "mini-pc", "workstation", "tablet", "convertible", "embedded", "generic"]
+    },
+    "matchingIdentifiers": {
+      "type": "object",
+      "properties": {
+        "manufacturers": { "type": "array", "items": { "type": "string" } },
+        "modelPatterns": { "type": "array", "items": { "type": "string" } },
+        "skus": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "expectedCapabilities": {
+      "type": "object",
+      "properties": {
+        "battery": { "type": "boolean" },
+        "batteryHealth": { "type": "boolean" },
+        "temperatureSensors": { "type": "boolean" },
+        "smartStorage": { "type": "boolean" },
+        "wifi": { "type": "boolean" },
+        "ethernet": { "type": "boolean" },
+        "bluetooth": { "type": "boolean" },
+        "camera": { "type": "boolean" },
+        "touchscreen": { "type": "boolean" },
+        "gpu": { "type": "boolean" },
+        "driverManagement": { "type": "boolean" }
+      }
+    },
+    "driverCatalogKey": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

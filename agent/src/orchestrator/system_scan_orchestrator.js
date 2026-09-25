@@ -84,7 +84,7 @@ class SystemScanOrchestrator {
     this.currentProgress.percent = 20;
     this.logEvent('Step 1/5: Starting Hardware Telemetry Scan (Physical Disks, SMART, Battery, RAM, Thermals)...');
 
-    const hwResult = this.hardwareScanner.scanAll();
+    const hwResult = await this.hardwareScanner.scanAll();
     modules.push({
       key: 'hardware',
       name: 'Scan Hardware',
@@ -104,7 +104,7 @@ class SystemScanOrchestrator {
     this.currentProgress.percent = 40;
     this.logEvent('Step 2/5: Updating antivirus signatures & running Windows Defender malware scan...');
 
-    const threatResult = this.threatScanner.scan('QuickScan');
+    const threatResult = await this.threatScanner.scan('QuickScan');
     modules.push({
       key: 'threat',
       name: 'Threat Scan',
@@ -124,7 +124,7 @@ class SystemScanOrchestrator {
     this.currentProgress.percent = 60;
     this.logEvent('Step 3/5: Inventorying device drivers & matching against verified Avantis catalog...');
 
-    const driverResult = this.driverManager.updateAllDrivers();
+    const driverResult = await this.driverManager.updateAllDrivers();
     modules.push({
       key: 'drivers',
       name: 'Update Drivers',
@@ -167,7 +167,7 @@ class SystemScanOrchestrator {
     this.currentProgress.percent = 100;
     this.logEvent('Step 5/5: Flushing DNS resolver cache, resetting TCP/IP stack, and recording latency...');
 
-    const networkResult = this.networkOptimizer.optimize();
+    const networkResult = await this.networkOptimizer.optimize();
     modules.push({
       key: 'network',
       name: 'Optimize Network',

@@ -1,267 +1,186 @@
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const HardwareDiscoveryService = require('../discovery/hardware_discovery');
 
 class HardwareScanner {
-  constructor() {}
-
-  execPowerShell(command, timeoutMs = 8000) {
-    try {
-      if (process.platform !== 'win32') return null;
-      const raw = execSync(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${command.replace(/"/g, '\\"')}"`, {
-        timeout: timeoutMs,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        windowsHide: true
-      });
-      return raw ? raw.trim() : null;
-    } catch {
-      return null;
-    }
+  constructor(discoveryService = null) {
+    this.discoveryService = discoveryService || new HardwareDiscoveryService();
   }
 
-  scanDisks() {
-    if (process.platform !== 'win32') {
+  async scanDisks(snapshot = null) {
+    const s = snapshot || await this.discoveryService.getFullSnapshot();
+    const storage = s.storage || {};
+    const disks = storage.physicalDisks || [];
+    const volumes = storage.volumes || [];
+
+    if (disks.length === 0 && volumes.length === 0) {
       return {
-        status: 'PASS',
-        reading: 'NVMe SSD 512GB (Health: Healthy, SMART: Normal)',
-        threshold: 'HealthStatus == Healthy',
-        details: { friendlyName: 'Virtual / Sandbox Disk', healthStatus: 'Healthy', operationalStatus: 'OK', readErrors: 0 }
+        status: 'WARNING',
+        reading: 'Storage subsystem: No physical drives reported by OS storage controller.',
+        threshold: 'Physical Storage Detected == True',
+        details: { disksCount: 0, volumesCount: 0, smartStatus: 'UNAVAILABLE' }
       };
     }
 
-    try {
-      const psScript = `
-        $ErrorActionPreference = 'SilentlyContinue';
-        $disks = @(Get-PhysicalDisk -ErrorAction SilentlyContinue | Select-Object FriendlyName, HealthStatus, OperationalStatus, MediaType, DeviceId);
-        $rel = @(Get-StorageReliabilityCounter -ErrorAction SilentlyContinue | Select-Object ReadErrorsTotal, WriteErrorsTotal, Wear, Temperature);
-        [PSCustomObject]@{
-          disks = $disks;
-          rel = $rel;
-        } | ConvertTo-Json -Depth 3
-      `.trim().replace(/\s+/g, ' ');
+    const primaryDisk = storage.primaryDisk || disks[0] || {};
+    const primaryVol = storage.primaryVolume || volumes[0] || {};
 
-      const raw = this.execPowerShell(psScript, 8000);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const diskList = Array.isArray(parsed.disks) ? parsed.disks : (parsed.disks ? [parsed.disks] : []);
-        const relList = Array.isArray(parsed.rel) ? parsed.rel : (parsed.rel ? [parsed.rel] : []);
+    let status = 'PASS';
+    let smart = primaryDisk.smartStatus || storage.smartStatus || 'UNAVAILABLE';
+    let msg = '';
 
-        if (diskList.length > 0) {
-          const primaryDisk = diskList[0];
-          const primaryRel = relList[0] || {};
-
-          const health = primaryDisk.HealthStatus || 'Healthy';
-          const opStatus = primaryDisk.OperationalStatus || 'OK';
-          const readErrors = parseInt(primaryRel.ReadErrorsTotal || 0, 10);
-          const wear = parseInt(primaryRel.Wear || 0, 10);
-
-          let status = 'PASS';
-          let msg = `${primaryDisk.FriendlyName || 'Primary Disk'} (Health: ${health}, Operational: ${opStatus})`;
-
-          if (health !== 'Healthy' || opStatus !== 'OK') {
-            status = 'FAIL';
-            msg += ` — Unhealthy disk state detected: ${health}`;
-          } else if (readErrors > 50 || wear > 85) {
-            status = 'WARNING';
-            msg += ` — Elevated SMART wear/read errors (${readErrors} read errors, ${wear}% wear)`;
-          }
-
-          return {
-            status,
-            reading: msg,
-            threshold: 'HealthStatus == Healthy, SMART ReadErrors < 50',
-            details: {
-              friendlyName: primaryDisk.FriendlyName,
-              healthStatus: health,
-              operationalStatus: opStatus,
-              readErrors,
-              wearPercent: wear
-            }
-          };
-        }
-      }
-    } catch {}
+    if (smart === 'CRITICAL' || smart === 'FAIL') {
+      status = 'FAIL';
+      msg = `${primaryDisk.name || 'Primary Storage'} — Critical disk fault detected: SMART ${smart}`;
+    } else if (smart === 'WARNING') {
+      status = 'WARNING';
+      msg = `${primaryDisk.name || 'Primary Storage'} — Elevated wear or sector reallocations detected`;
+    } else {
+      const capStr = primaryDisk.sizeGB ? `${primaryDisk.sizeGB} GB` : (primaryVol.totalGB ? `${primaryVol.totalGB} GB` : '');
+      const smartStr = (smart !== 'UNAVAILABLE' && smart !== 'UNKNOWN') ? `Health: ${smart}` : 'Health telemetry unavailable';
+      msg = `${primaryDisk.name || primaryDisk.model || 'Storage Disk'} ${capStr} (${primaryDisk.mediaType || 'Fixed Drive'}, ${smartStr})`.trim();
+    }
 
     return {
-      status: 'PASS',
-      reading: 'Storage Controller Operational (SMART Passed)',
-      threshold: 'HealthStatus == Healthy',
-      details: { healthStatus: 'Healthy', operationalStatus: 'OK' }
+      status,
+      reading: msg,
+      threshold: 'SMART Status == HEALTHY (Critical on FAILING, Warning on ELEVATED_WEAR)',
+      details: {
+        friendlyName: primaryDisk.name || primaryDisk.model || 'System Disk',
+        mediaType: primaryDisk.mediaType || 'Storage',
+        busType: primaryDisk.busType || 'Unknown',
+        sizeGB: primaryDisk.sizeGB || primaryVol.totalGB,
+        smartStatus: smart,
+        wearPercent: primaryDisk.wearPercent || null,
+        readErrors: primaryDisk.readErrors || null,
+        volumesCount: volumes.length
+      }
     };
   }
 
-  scanBattery() {
-    if (process.platform !== 'win32') {
+  async scanBattery(snapshot = null) {
+    const s = snapshot || await this.discoveryService.getFullSnapshot();
+    const power = s.power || {};
+
+    if (!power.hasBattery) {
       return {
         status: 'PASS',
-        reading: 'AC Mains Power Supply / Desktop',
-        threshold: 'Capacity >= 60% of Design',
-        details: { isLaptop: false, chargeRatioPercent: 100 }
+        reading: 'Continuous AC Mains Power Supply (No battery present on this hardware configuration)',
+        threshold: 'Stationary Power System Verified',
+        details: { isLaptop: false, hasBattery: false, powerSource: power.powerSource }
       };
     }
 
-    try {
-      const psScript = `
-        $ErrorActionPreference = 'SilentlyContinue';
-        $bat = Get-CimInstance Win32_Battery | Select-Object -First 1 EstimatedChargeRemaining, BatteryStatus, DesignCapacity, FullChargeCapacity;
-        if ($bat) {
-          $bat | ConvertTo-Json
-        } else {
-          '{}'
-        }
-      `.trim().replace(/\s+/g, ' ');
+    const currentPercent = power.currentPercent;
+    const health = power.healthPercent;
+    let status = 'PASS';
 
-      const raw = this.execPowerShell(psScript, 6000);
-      if (raw && raw !== '{}') {
-        const bat = JSON.parse(raw);
-        const design = parseInt(bat.DesignCapacity, 10) || 0;
-        const full = parseInt(bat.FullChargeCapacity, 10) || 0;
+    if (health !== null && health < 40) {
+      status = 'FAIL';
+    } else if (health !== null && health < 60) {
+      status = 'WARNING';
+    }
 
-        if (design > 0 && full > 0) {
-          const ratio = Math.round((full / design) * 100);
-          let status = 'PASS';
-          if (ratio < 40) {
-            status = 'FAIL';
-          } else if (ratio < 60) {
-            status = 'WARNING';
-          }
-
-          return {
-            status,
-            reading: `Battery Capacity: ${full} mWh / ${design} mWh (${ratio}% Health Retention, ${bat.EstimatedChargeRemaining}% Charge)`,
-            threshold: 'Capacity >= 60% of Design (Warning <60%, Fail <40%)',
-            details: {
-              isLaptop: true,
-              designCapacityMwh: design,
-              fullChargeCapacityMwh: full,
-              healthRetentionPercent: ratio,
-              currentChargePercent: bat.EstimatedChargeRemaining
-            }
-          };
-        }
-      }
-    } catch {}
+    const healthStr = health !== null ? `${health}% Health Retention` : 'Retention not reported';
+    const chargeStr = currentPercent !== null ? `${currentPercent}% Charge` : 'Charge level not reported';
 
     return {
-      status: 'PASS',
-      reading: 'Desktop / All-In-One (Continuous AC Mains Power)',
-      threshold: 'N/A (Stationary Power Supply)',
-      details: { isLaptop: false }
+      status,
+      reading: `Battery Subsystem: ${chargeStr} (${healthStr}, ${power.isCharging ? 'Charging' : 'On Battery'})`,
+      threshold: 'Capacity >= 60% of Design (Warning <60%, Fail <40%)',
+      details: {
+        isLaptop: true,
+        hasBattery: true,
+        currentChargePercent: currentPercent,
+        healthRetentionPercent: health,
+        designCapacityMwh: power.designCapacityMwh,
+        fullChargeCapacityMwh: power.fullChargeCapacityMwh,
+        isCharging: power.isCharging
+      }
     };
   }
 
-  scanMemory() {
-    if (process.platform !== 'win32') {
-      const totalGB = Math.round(os.totalmem() / (1024 ** 3));
+  async scanMemory(snapshot = null) {
+    const s = snapshot || await this.discoveryService.getFullSnapshot();
+    const memory = s.memory || {};
+
+    const totalGB = memory.totalGB;
+    const usedPercent = memory.usedPercent;
+    const modules = memory.modules || [];
+
+    if (!totalGB) {
       return {
-        status: 'PASS',
-        reading: `${totalGB} GB RAM (Physical installation verified)`,
-        threshold: 'Physical Integrity OK, Memory Modules Detected',
-        details: { totalGB, moduleCount: 1, scheduledTestQueued: false }
+        status: 'WARNING',
+        reading: 'Memory integrity: Physical memory capacity could not be queried',
+        threshold: 'Total Memory > 0 GB',
+        details: { totalGB: null }
       };
     }
 
-    try {
-      const psScript = `
-        $ErrorActionPreference = 'SilentlyContinue';
-        $mem = @(Get-CimInstance Win32_PhysicalMemory | Select-Object Capacity, Speed, DeviceLocator, Manufacturer);
-        $mem | ConvertTo-Json
-      `.trim().replace(/\s+/g, ' ');
+    let status = 'PASS';
+    if (usedPercent !== null && usedPercent > 95) {
+      status = 'WARNING';
+    }
 
-      const raw = this.execPowerShell(psScript, 5000);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const sticks = Array.isArray(parsed) ? parsed : [parsed];
-        const totalBytes = sticks.reduce((acc, s) => acc + (parseInt(s.Capacity, 10) || 0), 0);
-        const totalGB = Math.round(totalBytes / (1024 ** 3)) || Math.round(os.totalmem() / (1024 ** 3));
+    const modStr = modules.length > 0 ? `across ${modules.length} channel(s)` : 'physical memory';
+    const reading = `${totalGB} GB RAM ${modStr} (${usedPercent !== null ? usedPercent + '% current utilization' : 'Active'})`;
 
-        return {
-          status: 'PASS',
-          reading: `${totalGB} GB Physical RAM across ${sticks.length} channel(s) (Parity OK)`,
-          threshold: 'Physical Module Detection OK',
-          details: {
-            totalGB,
-            moduleCount: sticks.length,
-            modules: sticks.map(s => ({ locator: s.DeviceLocator, speedMhz: s.Speed })),
-            scheduledTestQueued: false
-          }
-        };
-      }
-    } catch {}
-
-    const totalGB = Math.round(os.totalmem() / (1024 ** 3));
     return {
-      status: 'PASS',
-      reading: `${totalGB} GB RAM (Physical Memory Verified)`,
-      threshold: 'Module Installation OK',
-      details: { totalGB }
+      status,
+      reading,
+      threshold: 'Memory Utilization < 95%, Physical Module Detection OK',
+      details: {
+        totalGB,
+        usedGB: memory.usedGB,
+        availableGB: memory.availableGB,
+        usedPercent,
+        moduleCount: modules.length,
+        modules: modules.map(m => ({ slot: m.slot, capacityGB: m.capacityGB, speedMHz: m.speedMHz }))
+      }
     };
   }
 
-  scanThermals() {
-    if (process.platform !== 'win32') {
+  async scanThermals(snapshot = null) {
+    const s = snapshot || await this.discoveryService.getFullSnapshot();
+    const cpu = s.cpu || {};
+
+    if (!cpu.temperatureSupported || cpu.temperatureC === null) {
       return {
         status: 'PASS',
-        reading: 'CPU Temp: 48°C (Normal Operating Range)',
-        threshold: 'CPU Temp < 90°C (Warning >=90°C, Fail >=100°C)',
-        details: { temperatureC: 48 }
+        reading: 'Thermal Sensors: Onboard thermal sensor reading is unavailable on this hardware or hypervisor',
+        threshold: 'Sensor Availability / Normal Operating Envelope',
+        details: { temperatureC: null, supported: false, reason: cpu.temperatureReason }
       };
     }
 
-    try {
-      const psScript = `
-        $ErrorActionPreference = 'SilentlyContinue';
-        $zone = Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue | Select-Object -First 1 CurrentTemperature;
-        if ($zone -and $zone.CurrentTemperature -gt 2732) {
-          [math]::Round(($zone.CurrentTemperature - 2732) / 10)
-        } else {
-          $cpu = Get-CimInstance Win32_PerfFormattedData_Counters_ThermalZoneInformation -ErrorAction SilentlyContinue | Select-Object -First 1 HighPrecisionTemperature;
-          if ($cpu) { [math]::Round(($cpu.HighPrecisionTemperature - 2732) / 10) } else { 48 }
-        }
-      `.trim().replace(/\s+/g, ' ');
-
-      const raw = this.execPowerShell(psScript, 4000);
-      let temp = parseInt(raw, 10);
-      if (isNaN(temp) || temp < 10 || temp > 130) {
-        temp = 48; // Baseline normal operating temp if sensor driver is abstracted
-      }
-
-      let status = 'PASS';
-      if (temp >= 100) {
-        status = 'FAIL';
-      } else if (temp >= 90) {
-        status = 'WARNING';
-      }
-
-      return {
-        status,
-        reading: `Processor Temp: ${temp}°C (${status === 'PASS' ? 'Normal Thermal Envelope' : 'Elevated Heat'})`,
-        threshold: 'CPU Temp < 90°C (Warning >=90°C, Fail >=100°C)',
-        details: { temperatureC: temp }
-      };
-    } catch {}
+    const temp = cpu.temperatureC;
+    let status = 'PASS';
+    if (temp >= 100) {
+      status = 'FAIL';
+    } else if (temp >= 90) {
+      status = 'WARNING';
+    }
 
     return {
-      status: 'PASS',
-      reading: 'Processor Thermal Envelope Normal',
-      threshold: 'CPU Temp < 90°C',
-      details: { temperatureC: 48 }
+      status,
+      reading: `Processor Thermal Diode: ${temp}°C (${status === 'PASS' ? 'Normal Operating Thermal Profile' : 'Elevated Heat Load'})`,
+      threshold: 'CPU Temp < 90°C (Warning >=90°C, Fail >=100°C)',
+      details: { temperatureC: temp, supported: true }
     };
   }
 
-  scanAll() {
-    const disk = this.scanDisks();
-    const battery = this.scanBattery();
-    const memory = this.scanMemory();
-    const thermals = this.scanThermals();
+  async scanAll() {
+    const snapshot = await this.discoveryService.getFullSnapshot();
+    const [disk, battery, memory, thermals] = await Promise.all([
+      this.scanDisks(snapshot),
+      this.scanBattery(snapshot),
+      this.scanMemory(snapshot),
+      this.scanThermals(snapshot)
+    ]);
 
     const components = [
-      { name: 'Primary Storage (Disk Health & SMART)', ...disk },
-      { name: 'Battery Subsystem (Health & Retention)', ...battery },
+      { name: 'Primary Storage (Disk Health & Capacity)', ...disk },
+      { name: 'Power Subsystem (AC / Battery Health)', ...battery },
       { name: 'Physical RAM (Memory Integrity)', ...memory },
-      { name: 'Thermal Sensors (CPU / Chassis Heat)', ...thermals }
+      { name: 'Thermal Sensors (Processor / Chassis Heat)', ...thermals }
     ];
 
     let overallStatus = 'PASS';
@@ -275,9 +194,9 @@ class HardwareScanner {
       status: overallStatus,
       timestamp: new Date().toISOString(),
       components,
-      limitationsNotice: 'Hardware diagnostics are conducted using Windows OS-level telemetry (SMART, WMI, ACPI, powercfg). Proprietary pre-boot firmware diagnostics require vendor-specific pre-boot firmware environment.',
+      limitationsNotice: 'Hardware diagnostics are conducted using genuine OS-level telemetry (ACPI, WMI, SMART, powercfg). Proprietary pre-boot firmware diagnostics require vendor-specific UEFI environment.',
       summaryMessage: overallStatus === 'PASS' 
-        ? 'All physical hardware subsystems passed OS telemetry verification.' 
+        ? 'All physical hardware subsystems passed telemetry verification.' 
         : (overallStatus === 'WARNING' ? 'Hardware telemetry detected warnings on one or more components.' : 'Hardware telemetry detected critical component faults.')
     };
   }

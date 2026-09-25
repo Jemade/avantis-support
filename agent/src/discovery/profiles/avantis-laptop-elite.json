@@ -1,0 +1,26 @@
+{
+  "profileId": "avantis-laptop-elite",
+  "modelName": "Avantis Laptop Elite 15",
+  "deviceFamily": "Avantis Elite Series",
+  "deviceType": "laptop",
+  "matchingIdentifiers": {
+    "manufacturers": ["Avantis", "Avantis Technologies", "Avantis Technologies Africa", "Avantis Hardware"],
+    "modelPatterns": ["Elite 15", "Laptop Elite", "AVT-ELT-15", "Avantis Elite"],
+    "skus": ["AVT-SKU-ELT15-01", "AVT-SKU-ELT15-02"]
+  },
+  "expectedCapabilities": {
+    "battery": true,
+    "batteryHealth": true,
+    "temperatureSensors": true,
+    "smartStorage": true,
+    "wifi": true,
+    "ethernet": true,
+    "bluetooth": true,
+    "camera": true,
+    "touchscreen": false,
+    "gpu": true,
+    "driverManagement": true
+  },
+  "driverCatalogKey": "AVT-CAT-ELITE15",
+  "notes": "Flagship 15-inch commercial business notebook with integrated thermal management and biometric TPM 2.0."
+}

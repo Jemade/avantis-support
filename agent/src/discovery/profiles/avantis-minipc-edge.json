@@ -1,0 +1,26 @@
+{
+  "profileId": "avantis-minipc-edge",
+  "modelName": "Avantis Mini PC Edge",
+  "deviceFamily": "Avantis Edge Micro",
+  "deviceType": "mini-pc",
+  "matchingIdentifiers": {
+    "manufacturers": ["Avantis", "Avantis Technologies", "Avantis Technologies Africa"],
+    "modelPatterns": ["Edge Micro", "Mini PC Edge", "AVT-MINI-EDG", "Avantis Edge"],
+    "skus": ["AVT-SKU-MINIEDG-01"]
+  },
+  "expectedCapabilities": {
+    "battery": false,
+    "batteryHealth": false,
+    "temperatureSensors": true,
+    "smartStorage": true,
+    "wifi": true,
+    "ethernet": true,
+    "bluetooth": true,
+    "camera": false,
+    "touchscreen": false,
+    "gpu": false,
+    "driverManagement": true
+  },
+  "driverCatalogKey": "AVT-CAT-MINIPCEDGE",
+  "notes": "Ultra-compact form-factor commercial edge unit for signage, POS, and branch office compute. Dual Gigabit Ethernet."
+}

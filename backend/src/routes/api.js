@@ -1,6 +1,180 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const db = require('../database/db');
+const { DeviceCatalogService } = require('../catalog/device_catalog');
+
+const catalogService = new DeviceCatalogService();
+const PROVISIONING_SECRET = process.env.AVANTIS_PROVISIONING_SECRET || 'AVANTIS-PROV-SECRET-2026';
+
+// ==========================================
+// 1. CONTROLLED DEVICE ENROLLMENT & PROVISIONING
+// ==========================================
+
+/**
+ * Internal Avantis Provisioning Endpoint
+ * Invoked by Avantis factory setup / technician deployment script.
+ * Requires secret provisioning key.
+ */
+router.post('/enrollment/enroll', async (req, res) => {
+  try {
+    const provKey = req.headers['x-avantis-provisioning-key'] || req.body.provisioningKey;
+    if (provKey !== PROVISIONING_SECRET) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: Valid Avantis technician provisioning key required for device enrollment.'
+      });
+    }
+
+    const {
+      deviceId,
+      installationId,
+      hardwareIdentity,
+      model,
+      serialNumber,
+      systemInfo = {},
+      clientVersion = '2.4.0',
+      technicianName = 'Avantis Technician'
+    } = req.body;
+
+    if (!deviceId || !installationId || !hardwareIdentity) {
+      return res.status(400).json({
+        success: false,
+        message: 'deviceId, installationId, and hardwareIdentity are required for enrollment.'
+      });
+    }
+
+    // Match against authoritative Avantis Device Catalog
+    const match = catalogService.matchSystem({
+      manufacturer: systemInfo.manufacturer || 'Avantis',
+      model: model || systemInfo.model,
+      sku: systemInfo.sku
+    });
+
+    let assignedModel = model || 'Avantis PC';
+    let assignedCapabilities = {};
+
+    if (match.matched && match.profile) {
+      assignedModel = match.profile.name;
+      assignedCapabilities = match.profile.capabilities;
+    } else {
+      // Non-catalog or generic hardware provisioned by technician
+      assignedModel = model || systemInfo.model || 'Avantis Custom Workstation';
+      assignedCapabilities = {
+        battery: systemInfo.hasBattery !== false,
+        temperatureSensors: true,
+        smartStorage: true,
+        wifi: true,
+        ethernet: true,
+        defender: true,
+        windowsUpdate: true,
+        driverManagement: true
+      };
+    }
+
+    // Generate cryptographically secure device auth token
+    const tokenPayload = `${deviceId}:${installationId}:${Date.now()}:${crypto.randomBytes(16).toString('hex')}`;
+    const authToken = crypto.createHmac('sha256', PROVISIONING_SECRET).update(tokenPayload).digest('hex');
+
+    const enrolled = await db.enrollDevice({
+      deviceId,
+      installationId,
+      deviceStatus: 'ACTIVE',
+      model: assignedModel,
+      serialNumber: serialNumber || systemInfo.serialNumber || null,
+      hardwareIdentity,
+      enrollmentStatus: 'ENROLLED',
+      authorizationStatus: 'AUTHORIZED',
+      clientVersion,
+      capabilities: assignedCapabilities,
+      authToken,
+      enrolledBy: technicianName
+    });
+
+    res.json({
+      success: true,
+      message: 'Machine successfully enrolled in Avantis Device Registry.',
+      enrolled: {
+        deviceId: enrolled.deviceId,
+        installationId: enrolled.installationId,
+        model: enrolled.model,
+        serialNumber: enrolled.serialNumber,
+        authorizationStatus: enrolled.authorizationStatus,
+        capabilities: enrolled.capabilities,
+        authToken: enrolled.authToken,
+        enrolledAt: enrolled.enrolledAt
+      }
+    });
+  } catch (err) {
+    console.error('[Enrollment] Enrollment error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * Verify Device Authorization
+ * Invoked by local Avantis Client Companion agent to confirm active authorization.
+ */
+router.post('/enrollment/verify', async (req, res) => {
+  try {
+    const { deviceId, installationId, authToken } = req.body;
+    if (!deviceId || !authToken) {
+      return res.status(400).json({
+        authorized: false,
+        status: 'UNENROLLED',
+        message: 'deviceId and authToken required.'
+      });
+    }
+
+    const verification = await db.verifyDeviceCredential(deviceId, installationId, authToken);
+    res.json(verification);
+  } catch (err) {
+    res.status(500).json({ authorized: false, status: 'SERVICE_ERROR', message: err.message });
+  }
+});
+
+/**
+ * Revoke Device Authorization
+ * Allows Avantis Support/Admin to immediately decommission or revoke an enrolled device.
+ */
+router.post('/enrollment/revoke', async (req, res) => {
+  try {
+    const provKey = req.headers['x-avantis-provisioning-key'] || req.body.provisioningKey;
+    if (provKey !== PROVISIONING_SECRET) {
+      return res.status(401).json({ success: false, message: 'Unauthorized: Administrative key required.' });
+    }
+
+    const { deviceId, reason } = req.body;
+    if (!deviceId) return res.status(400).json({ success: false, message: 'deviceId required.' });
+
+    const result = await db.revokeDevice(deviceId, reason || 'Administrative revocation by Avantis Support');
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * List Enrolled Devices (Internal View)
+ */
+router.get('/enrollment/devices', async (req, res) => {
+  try {
+    const devices = await db.listEnrolledDevices();
+    res.json({ success: true, count: devices.length, devices });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * Get Authoritative Device Catalog
+ */
+router.get('/enrollment/catalog', (req, res) => {
+  res.json({
+    success: true,
+    catalog: catalogService.getAllProfiles()
+  });
+});
 
 // Telemetry Ingest Endpoint
 router.post('/telemetry/ingest', async (req, res) => {

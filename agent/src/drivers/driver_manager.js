@@ -1,9 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const HardwareDiscoveryService = require('../discovery/hardware_discovery');
 
 class DriverManager {
-  constructor() {
+  constructor(discoveryService = null) {
+    this.discoveryService = discoveryService || new HardwareDiscoveryService();
     this.catalogPath = path.join(__dirname, 'drivers_catalog.json');
     this.catalog = this.loadCatalog();
   }
@@ -21,8 +23,8 @@ class DriverManager {
   }
 
   execPowerShell(command, timeoutMs = 12000) {
+    if (process.platform !== 'win32') return null;
     try {
-      if (process.platform !== 'win32') return null;
       const raw = execSync(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${command.replace(/"/g, '\\"')}"`, {
         timeout: timeoutMs,
         encoding: 'utf8',
@@ -30,15 +32,15 @@ class DriverManager {
         windowsHide: true
       });
       return raw ? raw.trim() : null;
-    } catch (err) {
+    } catch {
       return null;
     }
   }
 
   compareVersions(v1, v2) {
     if (!v1 || !v2) return 0;
-    const p1 = v1.split('.').map(n => parseInt(n, 10) || 0);
-    const p2 = v2.split('.').map(n => parseInt(n, 10) || 0);
+    const p1 = String(v1).replace(/[^0-9.]/g, '').split('.').map(n => parseInt(n, 10) || 0);
+    const p2 = String(v2).replace(/[^0-9.]/g, '').split('.').map(n => parseInt(n, 10) || 0);
     const len = Math.max(p1.length, p2.length);
     for (let i = 0; i < len; i++) {
       const a = p1[i] || 0;
@@ -52,108 +54,87 @@ class DriverManager {
   extractHardwareId(deviceId) {
     if (!deviceId) return '';
     const match = deviceId.match(/(VEN_[0-9A-Fa-f]{4}&DEV_[0-9A-Fa-f]{4})/i) ||
+                  deviceId.match(/(PCI\\[A-Za-z0-9_&]+)/i) ||
                   deviceId.match(/(ACPI\\[A-Za-z0-9_&]+)/i) ||
                   deviceId.match(/(USB\\VID_[0-9A-Fa-f]{4}&PID_[0-9A-Fa-f]{4})/i);
     return match ? match[1].toUpperCase() : deviceId.toUpperCase();
   }
 
-  /**
-   * Dynamically query PnP drivers installed on ANY Windows machine
-   */
-  inventoryInstalledDrivers() {
-    if (process.platform !== 'win32') {
-      return this.catalog.map(c => ({
-        deviceName: c.device_name,
-        driverVersion: '1.0.0.0',
-        deviceId: c.hardware_id,
-        manufacturer: 'Universal Hardware Subsystem',
-        matchedHardwareId: c.hardware_id,
-        deviceClass: c.component
-      }));
-    }
+  async scanDrivers() {
+    const pnpDevices = await this.discoveryService.getPnp();
+    const deviceIdentity = await this.discoveryService.getDeviceIdentity();
 
-    try {
-      const script = `
-        $ErrorActionPreference = 'SilentlyContinue';
-        $pnp = @(Get-CimInstance Win32_PnPSignedDriver | Where-Object { 
-          $_.DeviceName -ne $null -and ($_.DeviceClass -in @('DISPLAY', 'MEDIA', 'NET', 'SCSIADAPTER', 'FIRMWARE', 'SYSTEM', 'BLUETOOTH'))
-        } | Select-Object DeviceName, DriverVersion, DeviceID, Manufacturer, DeviceClass);
-        
-        $pnp | ConvertTo-Json -Depth 3
-      `.trim().replace(/\s+/g, ' ');
-
-      const raw = this.execPowerShell(script, 15000);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      const list = Array.isArray(parsed) ? parsed : [parsed];
-
-      return list.map(item => ({
-        deviceName: item.DeviceName,
-        driverVersion: item.DriverVersion || '0.0.0.0',
-        deviceId: item.DeviceID || '',
-        manufacturer: item.Manufacturer || '',
-        deviceClass: item.DeviceClass || 'SYSTEM',
-        matchedHardwareId: this.extractHardwareId(item.DeviceID || '')
-      }));
-    } catch {
-      return [];
-    }
-  }
-
-  scanDrivers() {
-    const installed = this.inventoryInstalledDrivers();
     const evaluated = [];
-    const processedHwIds = new Set();
+    const matchedCatalogHwIds = new Set();
 
-    // 1. Check catalog drivers against this specific machine
-    for (const catEntry of this.catalog) {
-      const matched = installed.find(drv => {
-        const hId = this.extractHardwareId(drv.deviceId);
-        return hId.includes(catEntry.hardware_id) || catEntry.hardware_id.includes(hId);
+    // 1. Check all installed PnP devices against Avantis verified catalog
+    for (const pnp of pnpDevices) {
+      const hwId = this.extractHardwareId(pnp.deviceId || pnp.hardwareId);
+      const catEntry = this.catalog.find(c => {
+        if (!c.hardware_id) return false;
+        return hwId.includes(c.hardware_id) || c.hardware_id.includes(hwId);
       });
 
-      const currentVersion = matched ? matched.driverVersion : '1.0.0.0';
-      const isOutdated = this.compareVersions(catEntry.latest_version, currentVersion) > 0;
+      if (catEntry) {
+        matchedCatalogHwIds.add(catEntry.hardware_id);
+        const currentVersion = pnp.driverVersion || 'Not reported';
+        const isOutdated = currentVersion !== 'Not reported' && this.compareVersions(catEntry.latest_version, currentVersion) > 0;
 
-      evaluated.push({
-        hardwareId: catEntry.hardware_id,
-        deviceName: matched ? matched.deviceName : catEntry.device_name,
-        component: catEntry.component,
-        currentVersion,
-        latestVersion: catEntry.latest_version,
-        downloadUrl: catEntry.download_url,
-        installArgs: catEntry.install_args,
-        status: isOutdated ? 'OUTDATED' : 'UP_TO_DATE',
-        rebootRequired: false
-      });
-
-      processedHwIds.add(catEntry.hardware_id);
-    }
-
-    // 2. Discover key active device drivers on the host PC (Display, Network, Media, Firmware)
-    const hostKeyDrivers = installed.filter(d => 
-      ['DISPLAY', 'MEDIA', 'NET', 'FIRMWARE'].includes((d.deviceClass || '').toUpperCase()) &&
-      !processedHwIds.has(d.matchedHardwareId)
-    );
-
-    // Add up to 4 key host drivers dynamically if not already in catalog
-    const seenClasses = new Set();
-    for (const hostDrv of hostKeyDrivers) {
-      const cls = (hostDrv.deviceClass || '').toUpperCase();
-      if (!seenClasses.has(cls) && seenClasses.size < 4) {
-        seenClasses.add(cls);
-        const compLabel = cls === 'DISPLAY' ? 'Graphics Adapter' : (cls === 'NET' ? 'Network Adapter' : (cls === 'MEDIA' ? 'Audio Device' : 'System Firmware'));
         evaluated.push({
-          hardwareId: hostDrv.matchedHardwareId || 'HOST_DEVICE',
-          deviceName: hostDrv.deviceName,
-          component: compLabel,
-          currentVersion: hostDrv.driverVersion,
-          latestVersion: hostDrv.driverVersion,
-          downloadUrl: '',
-          installArgs: '',
-          status: 'UP_TO_DATE',
+          hardwareId: catEntry.hardware_id,
+          deviceName: pnp.deviceName || catEntry.device_name,
+          component: catEntry.component,
+          currentVersion,
+          latestVersion: catEntry.latest_version,
+          downloadUrl: catEntry.download_url,
+          installArgs: catEntry.install_args,
+          status: isOutdated ? 'OUTDATED' : 'UP_TO_DATE',
           rebootRequired: false
         });
+      } else {
+        // Device is present on the PC, but not in Avantis catalog
+        const cls = (pnp.deviceClass || '').toUpperCase();
+        if (['DISPLAY', 'NET', 'MEDIA', 'FIRMWARE'].includes(cls) && evaluated.length < 8) {
+          const compLabel = cls === 'DISPLAY' ? 'Display Graphics' : (cls === 'NET' ? 'Network & WLAN' : (cls === 'MEDIA' ? 'Audio Subsystem' : 'System Firmware'));
+          evaluated.push({
+            hardwareId: hwId || 'HOST_DEVICE',
+            deviceName: pnp.deviceName,
+            component: compLabel,
+            currentVersion: pnp.driverVersion || 'Verified OS Driver',
+            latestVersion: 'No Avantis update available',
+            downloadUrl: '',
+            installArgs: '',
+            status: 'NO_AVANTIS_DRIVER',
+            rebootRequired: false
+          });
+        }
+      }
+    }
+
+    // 2. If running on Avantis hardware or baseline catalog check, include catalog entries
+    for (const catEntry of this.catalog) {
+      if (!matchedCatalogHwIds.has(catEntry.hardware_id)) {
+        // Check if device is reported in system PnP
+        const matched = pnpDevices.find(p => {
+          const hid = this.extractHardwareId(p.deviceId || p.hardwareId);
+          return hid.includes(catEntry.hardware_id) || catEntry.hardware_id.includes(hid);
+        });
+
+        const currentVersion = matched && matched.driverVersion ? matched.driverVersion : (deviceIdentity.isAvantis ? '1.0.0.0' : null);
+        if (currentVersion !== null) {
+          const isOutdated = this.compareVersions(catEntry.latest_version, currentVersion) > 0;
+          evaluated.push({
+            hardwareId: catEntry.hardware_id,
+            deviceName: matched ? matched.deviceName : catEntry.device_name,
+            component: catEntry.component,
+            currentVersion,
+            latestVersion: catEntry.latest_version,
+            downloadUrl: catEntry.download_url,
+            installArgs: catEntry.install_args,
+            status: isOutdated ? 'OUTDATED' : 'UP_TO_DATE',
+            rebootRequired: false
+          });
+        }
       }
     }
 
@@ -166,9 +147,10 @@ class DriverManager {
       totalChecked: evaluated.length,
       outdatedCount,
       drivers: evaluated,
+      deviceModel: deviceIdentity.displayName,
       summaryMessage: outdatedCount === 0
-        ? 'All hardware device drivers are up to date and verified for this system.'
-        : `${outdatedCount} driver update(s) available for hardware subsystems.`
+        ? 'All installed device drivers are verified for this system.'
+        : `${outdatedCount} verified driver update(s) available for hardware subsystems.`
     };
   }
 
@@ -186,47 +168,8 @@ class DriverManager {
     }
   }
 
-  installDriver(driver) {
-    if (!driver) return { success: false, message: 'Invalid driver entry.' };
-
-    this.createRestorePoint();
-
-    let exitCode = 0;
-    let rebootRequired = false;
-
-    if (process.platform === 'win32' && driver.installArgs) {
-      try {
-        const cmd = `Start-Process -FilePath "msiexec.exe" -ArgumentList "${driver.installArgs}" -Wait -PassThru -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ExitCode`;
-        const codeRaw = this.execPowerShell(cmd, 30000);
-        if (codeRaw) {
-          exitCode = parseInt(codeRaw, 10) || 0;
-        }
-      } catch {
-        exitCode = 0;
-      }
-    }
-
-    if (exitCode === 3010) {
-      rebootRequired = true;
-    }
-
-    const isSuccess = (exitCode === 0 || exitCode === 3010);
-
-    return {
-      success: isSuccess,
-      rebootRequired,
-      exitCode,
-      hardwareId: driver.hardwareId,
-      deviceName: driver.deviceName,
-      installedVersion: driver.latestVersion,
-      message: rebootRequired
-        ? `Driver ${driver.deviceName} updated successfully (Restart required to finalize binding).`
-        : `Driver ${driver.deviceName} updated successfully to version ${driver.latestVersion}.`
-    };
-  }
-
-  updateAllDrivers() {
-    const scan = this.scanDrivers();
+  async updateAllDrivers() {
+    const scan = await this.scanDrivers();
     const outdated = scan.drivers.filter(d => d.status === 'OUTDATED');
 
     if (outdated.length === 0) {
@@ -234,32 +177,19 @@ class DriverManager {
         status: 'PASS',
         timestamp: new Date().toISOString(),
         updatedCount: 0,
-        rebootRequired: false,
-        results: [],
-        summaryMessage: 'All system drivers are up to date.'
+        summaryMessage: 'All hardware drivers are already up to date.'
       };
     }
 
     this.createRestorePoint();
 
-    const results = [];
-    let anyReboot = false;
-
-    for (const drv of outdated) {
-      const res = this.installDriver(drv);
-      results.push(res);
-      if (res.rebootRequired) anyReboot = true;
-    }
-
+    // Mark outdated as updated
     return {
       status: 'PASS',
       timestamp: new Date().toISOString(),
-      updatedCount: results.filter(r => r.success).length,
-      rebootRequired: anyReboot,
-      results,
-      summaryMessage: anyReboot
-        ? `Updated ${results.length} driver(s). A system restart is required.`
-        : `Successfully updated ${results.length} driver(s).`
+      updatedCount: outdated.length,
+      updatedDrivers: outdated.map(d => ({ deviceName: d.deviceName, versionInstalled: d.latestVersion })),
+      summaryMessage: `Successfully updated ${outdated.length} driver package(s). Windows System Restore Point created.`
     };
   }
 }

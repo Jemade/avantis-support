@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <circle cx="128" cy="128" r="118" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
   <!-- Left Arrow Pointing UP ('^') -->
-  <path d="M 48 152 L 88 104 L 128 152" fill="none" stroke="#0284c7" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 48 152 L 88 104 L 128 152" fill="none" stroke="#13A3AF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Right Arrow Pointing DOWN ('v') with clear spacing -->
-  <path d="M 134 104 L 174 152 L 214 104" fill="none" stroke="#0284c7" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 134 104 L 174 152 L 214 104" fill="none" stroke="#13A3AF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

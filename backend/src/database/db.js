@@ -7,6 +7,7 @@ class PostgreSQLDatabase {
     this.isNativePgConnected = false;
     this.inMemoryStore = {
       devices: new Map(),
+      enrolledDevices: new Map(),
       telemetry: [],
       alerts: [],
       tickets: new Map()
@@ -83,6 +84,24 @@ class PostgreSQLDatabase {
         status VARCHAR(50) DEFAULT 'OPEN',
         created_at TIMESTAMP WITH TIME ZONE,
         updated_at TIMESTAMP WITH TIME ZONE
+      );`,
+
+      `CREATE TABLE IF NOT EXISTS avantis_enrolled_devices (
+        device_id VARCHAR(100) PRIMARY KEY,
+        installation_id VARCHAR(100) UNIQUE,
+        device_status VARCHAR(50) DEFAULT 'ACTIVE',
+        model VARCHAR(255),
+        serial_number VARCHAR(100),
+        hardware_identity VARCHAR(255),
+        enrollment_status VARCHAR(50) DEFAULT 'ENROLLED',
+        authorization_status VARCHAR(50) DEFAULT 'AUTHORIZED',
+        client_version VARCHAR(50),
+        capabilities JSONB,
+        auth_token VARCHAR(255),
+        enrolled_by VARCHAR(100),
+        enrolled_at TIMESTAMP WITH TIME ZONE,
+        last_seen TIMESTAMP WITH TIME ZONE,
+        revocation_reason TEXT
       );`
     ];
 
@@ -247,6 +266,187 @@ class PostgreSQLDatabase {
         ticket.status = newStatus;
         ticket.updated_at = now;
       }
+    }
+  }
+
+  // ==========================================
+  // AVANTIS CONTROLLED ENROLLMENT & AUTHORIZATION
+  // ==========================================
+
+  async enrollDevice(record) {
+    const now = new Date().toISOString();
+    const data = {
+      deviceId: record.deviceId,
+      installationId: record.installationId,
+      deviceStatus: record.deviceStatus || 'ACTIVE',
+      model: record.model || 'Avantis PC',
+      serialNumber: record.serialNumber || null,
+      hardwareIdentity: record.hardwareIdentity,
+      enrollmentStatus: record.enrollmentStatus || 'ACTIVE',
+      authorizationStatus: record.authorizationStatus || 'AUTHORIZED',
+      clientVersion: record.clientVersion || '2.4.0',
+      capabilities: record.capabilities || {},
+      authToken: record.authToken,
+      enrolledBy: record.enrolledBy || 'Avantis Factory / Provisioning Bench',
+      enrolledAt: record.enrolledAt || now,
+      lastSeen: now,
+      revocationReason: null
+    };
+
+    if (this.isNativePgConnected) {
+      const query = `
+        INSERT INTO avantis_enrolled_devices 
+          (device_id, installation_id, device_status, model, serial_number, hardware_identity, enrollment_status, authorization_status, client_version, capabilities, auth_token, enrolled_by, enrolled_at, last_seen, revocation_reason)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ON CONFLICT (device_id) DO UPDATE SET
+          installation_id = EXCLUDED.installation_id,
+          device_status = EXCLUDED.device_status,
+          model = EXCLUDED.model,
+          serial_number = EXCLUDED.serial_number,
+          hardware_identity = EXCLUDED.hardware_identity,
+          enrollment_status = EXCLUDED.enrollment_status,
+          authorization_status = EXCLUDED.authorization_status,
+          client_version = EXCLUDED.client_version,
+          capabilities = EXCLUDED.capabilities,
+          auth_token = EXCLUDED.auth_token,
+          last_seen = EXCLUDED.last_seen;
+      `;
+      await this.pool.query(query, [
+        data.deviceId, data.installationId, data.deviceStatus, data.model,
+        data.serialNumber, data.hardwareIdentity, data.enrollmentStatus,
+        data.authorizationStatus, data.clientVersion, JSON.stringify(data.capabilities),
+        data.authToken, data.enrolledBy, data.enrolledAt, data.lastSeen, data.revocationReason
+      ]);
+    } else {
+      this.inMemoryStore.enrolledDevices.set(data.deviceId, data);
+    }
+
+    return data;
+  }
+
+  async getEnrolledDevice(deviceId) {
+    if (!deviceId) return null;
+    if (this.isNativePgConnected) {
+      const res = await this.pool.query('SELECT * FROM avantis_enrolled_devices WHERE device_id = $1', [deviceId]);
+      if (res.rows.length === 0) return null;
+      const row = res.rows[0];
+      return {
+        deviceId: row.device_id,
+        installationId: row.installation_id,
+        deviceStatus: row.device_status,
+        model: row.model,
+        serialNumber: row.serial_number,
+        hardwareIdentity: row.hardware_identity,
+        enrollmentStatus: row.enrollment_status,
+        authorizationStatus: row.authorization_status,
+        clientVersion: row.client_version,
+        capabilities: typeof row.capabilities === 'string' ? JSON.parse(row.capabilities) : row.capabilities,
+        authToken: row.auth_token,
+        enrolledBy: row.enrolled_by,
+        enrolledAt: row.enrolled_at,
+        lastSeen: row.last_seen,
+        revocationReason: row.revocation_reason
+      };
+    } else {
+      return this.inMemoryStore.enrolledDevices.get(deviceId) || null;
+    }
+  }
+
+  async verifyDeviceCredential(deviceId, installationId, token) {
+    const dev = await this.getEnrolledDevice(deviceId);
+    if (!dev) {
+      return { authorized: false, status: 'UNENROLLED', reason: 'Device record not found in Avantis registry.' };
+    }
+
+    if (dev.authorizationStatus === 'REVOKED') {
+      return { authorized: false, status: 'REVOKED', reason: dev.revocationReason || 'Device authorization has been revoked by Avantis PC Support.' };
+    }
+
+    if (dev.authorizationStatus === 'SUSPENDED') {
+      return { authorized: false, status: 'SUSPENDED', reason: 'Device authorization is temporarily suspended.' };
+    }
+
+    if (installationId && dev.installationId !== installationId) {
+      return { authorized: false, status: 'NOT_AUTHORIZED', reason: 'Installation ID mismatch.' };
+    }
+
+    if (token && dev.authToken !== token) {
+      return { authorized: false, status: 'NOT_AUTHORIZED', reason: 'Invalid device authorization token.' };
+    }
+
+    // Touch last_seen
+    const now = new Date().toISOString();
+    dev.lastSeen = now;
+    if (this.isNativePgConnected) {
+      await this.pool.query('UPDATE avantis_enrolled_devices SET last_seen = $1 WHERE device_id = $2', [now, deviceId]);
+    } else {
+      this.inMemoryStore.enrolledDevices.set(deviceId, dev);
+    }
+
+    return {
+      authorized: true,
+      status: dev.authorizationStatus || 'AUTHORIZED',
+      device: {
+        deviceId: dev.deviceId,
+        installationId: dev.installationId,
+        model: dev.model,
+        serialNumber: dev.serialNumber,
+        enrollmentStatus: dev.enrollmentStatus,
+        authorizationStatus: dev.authorizationStatus,
+        capabilities: dev.capabilities
+      }
+    };
+  }
+
+  async revokeDevice(deviceId, reason = 'Administrative revocation') {
+    const now = new Date().toISOString();
+    if (this.isNativePgConnected) {
+      await this.pool.query(
+        'UPDATE avantis_enrolled_devices SET authorization_status = $1, device_status = $2, revocation_reason = $3, last_seen = $4 WHERE device_id = $5',
+        ['REVOKED', 'REVOKED', reason, now, deviceId]
+      );
+    } else {
+      const dev = this.inMemoryStore.enrolledDevices.get(deviceId);
+      if (dev) {
+        dev.authorizationStatus = 'REVOKED';
+        dev.deviceStatus = 'REVOKED';
+        dev.revocationReason = reason;
+        dev.lastSeen = now;
+      }
+    }
+    return { success: true, deviceId, status: 'REVOKED', reason };
+  }
+
+  async listEnrolledDevices() {
+    if (this.isNativePgConnected) {
+      const res = await this.pool.query('SELECT * FROM avantis_enrolled_devices ORDER BY enrolled_at DESC');
+      return res.rows.map(row => ({
+        deviceId: row.device_id,
+        installationId: row.installation_id,
+        deviceStatus: row.device_status,
+        model: row.model,
+        serialNumber: row.serial_number,
+        enrollmentStatus: row.enrollment_status,
+        authorizationStatus: row.authorization_status,
+        clientVersion: row.client_version,
+        enrolledBy: row.enrolled_by,
+        enrolledAt: row.enrolled_at,
+        lastSeen: row.last_seen
+      }));
+    } else {
+      return Array.from(this.inMemoryStore.enrolledDevices.values()).map(d => ({
+        deviceId: d.deviceId,
+        installationId: d.installationId,
+        deviceStatus: d.deviceStatus,
+        model: d.model,
+        serialNumber: d.serialNumber,
+        enrollmentStatus: d.enrollmentStatus,
+        authorizationStatus: d.authorizationStatus,
+        clientVersion: d.clientVersion,
+        enrolledBy: d.enrolledBy,
+        enrolledAt: d.enrolledAt,
+        lastSeen: d.lastSeen
+      }));
     }
   }
 }

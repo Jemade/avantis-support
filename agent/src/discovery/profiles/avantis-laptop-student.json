@@ -1,0 +1,26 @@
+{
+  "profileId": "avantis-laptop-student",
+  "modelName": "Avantis Laptop Student 14",
+  "deviceFamily": "Avantis Education Series",
+  "deviceType": "laptop",
+  "matchingIdentifiers": {
+    "manufacturers": ["Avantis", "Avantis Technologies", "Avantis Technologies Africa"],
+    "modelPatterns": ["Student 14", "Laptop Student", "AVT-STU-14", "Avantis Edu"],
+    "skus": ["AVT-SKU-STU14-01"]
+  },
+  "expectedCapabilities": {
+    "battery": true,
+    "batteryHealth": true,
+    "temperatureSensors": true,
+    "smartStorage": true,
+    "wifi": true,
+    "ethernet": false,
+    "bluetooth": true,
+    "camera": true,
+    "touchscreen": false,
+    "gpu": false,
+    "driverManagement": true
+  },
+  "driverCatalogKey": "AVT-CAT-STUDENT14",
+  "notes": "Cost-effective 14-inch student laptop with reinforced chassis and long-life battery retention."
+}

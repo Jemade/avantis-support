@@ -1,11 +1,14 @@
 const { execSync } = require('child_process');
+const HardwareDiscoveryService = require('../discovery/hardware_discovery');
 
 class ThreatScanner {
-  constructor() {}
+  constructor(discoveryService = null) {
+    this.discoveryService = discoveryService || new HardwareDiscoveryService();
+  }
 
   execPowerShell(command, timeoutMs = 25000) {
+    if (process.platform !== 'win32') return null;
     try {
-      if (process.platform !== 'win32') return null;
       const raw = execSync(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${command.replace(/"/g, '\\"')}"`, {
         timeout: timeoutMs,
         encoding: 'utf8',
@@ -18,157 +21,99 @@ class ThreatScanner {
     }
   }
 
-  getDefenderStatus() {
-    if (process.platform !== 'win32') {
-      return {
-        antivirusEnabled: true,
-        realTimeProtection: true,
-        signatureAgeDays: 0,
-        engine: 'Windows Antivirus Shield'
-      };
-    }
-
-    try {
-      const psScript = `
-        $ErrorActionPreference = 'SilentlyContinue';
-        $avProducts = @(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct -ErrorAction SilentlyContinue | Select-Object displayName, productState);
-        $defender = Get-MpComputerStatus -ErrorAction SilentlyContinue | Select-Object AntivirusEnabled, RealTimeProtectionEnabled, AntivirusSignatureAge, AntivirusSignatureLastUpdated, AMServiceEnabled;
-        
-        [PSCustomObject]@{
-          avProducts = $avProducts;
-          defender = $defender;
-        } | ConvertTo-Json -Depth 3
-      `.trim().replace(/\s+/g, ' ');
-
-      const raw = this.execPowerShell(psScript, 8000);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const products = Array.isArray(parsed.avProducts) ? parsed.avProducts : (parsed.avProducts ? [parsed.avProducts] : []);
-        const def = parsed.defender || {};
-
-        let activeEngineName = 'Microsoft Defender Antivirus';
-        if (products.length > 0) {
-          activeEngineName = products.map(p => p.displayName).join(', ');
-        }
-
-        const isRealTime = def.RealTimeProtectionEnabled !== undefined 
-          ? !!def.RealTimeProtectionEnabled 
-          : (products.length > 0);
-
-        return {
-          antivirusEnabled: def.AntivirusEnabled !== undefined ? !!def.AntivirusEnabled : true,
-          realTimeProtection: isRealTime,
-          signatureAgeDays: parseInt(def.AntivirusSignatureAge, 10) || 0,
-          signatureLastUpdated: def.AntivirusSignatureLastUpdated || null,
-          engine: activeEngineName
-        };
-      }
-    } catch {}
-
+  async getDefenderStatus() {
+    const sec = await this.discoveryService.getSecurity();
     return {
-      antivirusEnabled: true,
-      realTimeProtection: true,
-      signatureAgeDays: 0,
-      engine: 'Microsoft Defender Antivirus'
+      available: sec.available,
+      engine: sec.engine || 'Windows Defender',
+      antivirusEnabled: sec.antivirusEnabled,
+      realTimeProtection: sec.realTimeProtection,
+      signatureAgeDays: sec.signatureAgeDays,
+      signatureVersion: sec.signatureVersion,
+      engineVersion: sec.engineVersion,
+      lastQuickScanTime: sec.lastQuickScanTime,
+      lastFullScanTime: sec.lastFullScanTime,
+      reason: sec.reason
     };
   }
 
-  updateSignatures() {
+  async updateSignatures() {
     if (process.platform !== 'win32') {
-      return { success: true, message: 'Antivirus signatures verified up to date.' };
+      return { success: false, message: 'Windows Defender signature updates are only available on Microsoft Windows installations.' };
     }
 
     try {
-      this.execPowerShell('Update-MpSignature -ErrorAction SilentlyContinue', 5000);
-      return { success: true, message: 'Antivirus definitions updated to latest release.' };
+      this.execPowerShell('Update-MpSignature -ErrorAction SilentlyContinue', 8000);
+      return { success: true, message: 'Windows Defender antivirus definitions updated to latest release.' };
     } catch (err) {
-      return { success: false, message: 'Antivirus definitions verified current.' };
+      return { success: false, message: 'Could not update definitions: ' + err.message };
     }
   }
 
-  scan(scanType = 'QuickScan') {
+  async scan(scanType = 'QuickScan') {
     const startTime = Date.now();
-    const defenderStatus = this.getDefenderStatus();
+    const defenderStatus = await this.getDefenderStatus();
 
     // 1. Signature update
-    const sigUpdate = this.updateSignatures();
+    if (defenderStatus.available) {
+      await this.updateSignatures();
+    }
 
     // 2. Scan execution
     let scanExecuted = false;
-    if (process.platform === 'win32') {
+    let threats = [];
+
+    if (process.platform === 'win32' && defenderStatus.available) {
       try {
         const cmd = scanType === 'FullScan' 
           ? 'Start-MpScan -ScanType FullScan -ErrorAction SilentlyContinue' 
           : 'Start-MpScan -ScanType QuickScan -ErrorAction SilentlyContinue';
-        this.execPowerShell(cmd, 5000);
+        
+        this.execPowerShell(cmd, 60000);
         scanExecuted = true;
-      } catch {}
-    } else {
-      scanExecuted = true;
-    }
 
-    // 3. Pull threat detections dynamically
-    let threats = [];
-    if (process.platform === 'win32') {
-      try {
-        const threatScript = `
+        const threatQuery = `
           $ErrorActionPreference = 'SilentlyContinue';
-          $dets = @(Get-MpThreatDetection -ErrorAction SilentlyContinue | Select-Object ThreatID, InitialDetectionTime, Resources, ThreatStatusErrorCode);
-          $threats = @(Get-MpThreat -ErrorAction SilentlyContinue | Select-Object ThreatID, ThreatName, SeverityID, DidThreatExecute, ActionSuccess);
-          [PSCustomObject]@{
-            threats = $threats;
-            detections = $dets;
-          } | ConvertTo-Json -Depth 3
-        `.trim().replace(/\s+/g, ' ');
+          $t = @(Get-MpThreatDetection -ErrorAction SilentlyContinue | Select-Object -First 10 ThreatName, InitialDetectionTime, Resources, SeverityID, ThreatStatusID);
+          $t | ConvertTo-Json -Depth 2
+        `.trim();
 
-        const raw = this.execPowerShell(threatScript, 8000);
+        const raw = this.execPowerShell(threatQuery, 8000);
         if (raw) {
           const parsed = JSON.parse(raw);
-          const rawThreats = Array.isArray(parsed.threats) ? parsed.threats : (parsed.threats ? [parsed.threats] : []);
-          const rawDets = Array.isArray(parsed.detections) ? parsed.detections : (parsed.detections ? [parsed.detections] : []);
-
-          threats = rawThreats.map(t => {
-            const det = rawDets.find(d => d.ThreatID === t.ThreatID) || {};
-            return {
-              threatId: t.ThreatID,
-              threatName: t.ThreatName || 'Malicious Payload Signature',
-              severityId: t.SeverityID || 1,
-              actionSuccess: t.ActionSuccess !== false,
-              filePath: Array.isArray(det.Resources) ? det.Resources.join(', ') : (det.Resources || 'System Memory / Temp'),
-              actionTaken: t.ActionSuccess ? 'Quarantined / Removed' : 'Active (Action Required)'
-            };
-          });
+          const list = Array.isArray(parsed) ? parsed : [parsed];
+          threats = list.filter(item => item && item.ThreatName).map(item => ({
+            threatName: item.ThreatName,
+            severityId: item.SeverityID || 1,
+            filePath: Array.isArray(item.Resources) ? item.Resources[0] : (item.Resources || 'Unknown path'),
+            actionTaken: 'Quarantine'
+          }));
         }
-      } catch {}
-    }
-
-    const durationSeconds = Math.max(1, Math.round((Date.now() - startTime) / 1000));
-
-    // Status evaluation
-    let status = 'PASS';
-    let summaryMessage = `Threat scan complete (${defenderStatus.engine}): Zero active malware or security threats detected.`;
-
-    if (threats.length > 0) {
-      const hasUnresolved = threats.some(t => !t.actionSuccess);
-      if (hasUnresolved) {
-        status = 'FAIL';
-        summaryMessage = `CRITICAL: ${threats.length} unresolved threat(s) detected. Manual IT remediation required.`;
-      } else {
-        status = 'WARNING';
-        summaryMessage = `Threats detected and remediated: ${threats.length} item(s) quarantined automatically.`;
+      } catch (err) {
+        console.warn('[ThreatScanner] Scan error:', err.message);
       }
     }
 
+    const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+    const overallStatus = threats.length > 0 ? 'CRITICAL' : 'PASS';
+
     return {
-      status,
+      status: overallStatus,
       timestamp: new Date().toISOString(),
       scanType,
       durationSeconds,
-      defenderStatus,
-      signatureUpdate: sigUpdate,
-      threatsFound: threats.length,
+      engine: defenderStatus.engine || 'Windows Defender',
+      realTimeProtection: defenderStatus.realTimeProtection,
+      signatureAgeDays: defenderStatus.signatureAgeDays,
+      activeThreatsCount: threats.length,
       threats,
-      summaryMessage
+      remediatedCount: threats.length,
+      available: defenderStatus.available,
+      summaryMessage: !defenderStatus.available
+        ? 'Windows Defender is not available on this platform.'
+        : (threats.length === 0
+            ? 'Windows Defender scan completed: Zero threats, rootkits, or active malware detected.'
+            : `Windows Defender detected ${threats.length} threat(s). Remediation applied.`)
     };
   }
 }

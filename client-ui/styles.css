@@ -515,18 +515,7 @@ button { cursor: pointer; }
 }
 
 .live-dot-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 0 0 rgba(11, 188, 168, 0.6);
-  animation: pulse-dot 2s infinite;
-}
-
-@keyframes pulse-dot {
-  0% { box-shadow: 0 0 0 0 rgba(11, 188, 168, 0.6); }
-  70% { box-shadow: 0 0 0 6px rgba(11, 188, 168, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(11, 188, 168, 0); }
+  display: none !important;
 }
 
 .summary-tiles-row {
@@ -761,7 +750,46 @@ button { cursor: pointer; }
 .badge-PASS, .badge-HEALTHY { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
 .badge-WARNING { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
 .badge-FAIL, .badge-CRITICAL { background: var(--error-bg); color: var(--error); border: 1px solid var(--error-border); }
+.badge-OUTDATED { 
+  background: #fef2f2 !important; 
+  color: #dc2626 !important; 
+  border: 1.5px solid #ef4444 !important; 
+  font-weight: 800 !important;
+  letter-spacing: 0.5px;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.16);
+}
+.badge-NO_AVANTIS_DRIVER {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+}
 .badge-NEVER { background: var(--neutral-100); color: var(--neutral-600); border: 1px solid var(--neutral-200); }
+
+/* Offline Banner */
+.agent-offline-banner {
+  padding: 12px 18px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.agent-offline-banner button {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
 .btn-run-action,
 .btn-primary {

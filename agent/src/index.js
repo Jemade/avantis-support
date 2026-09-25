@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { execSync } = require('child_process');
-const HardwareCollector = require('./diagnostics/hardware_collector');
+const HardwareDiscoveryService = require('./discovery/hardware_discovery');
 const ThresholdEngine = require('./threshold/threshold_engine');
 const CleanupEngine = require('./cleanup/cleanup_engine');
 const NotificationManager = require('./notifications/notification_manager');
@@ -13,26 +13,29 @@ const SystemScanOrchestrator = require('./orchestrator/system_scan_orchestrator'
 const ReportStore = require('./reports/report_store');
 const GeminiService = require('./ai/gemini_service');
 const PredictiveMonitor = require('./ai/predictive_monitor');
+const AuthorizationManager = require('./auth/authorization_manager');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const collector = new HardwareCollector();
+const AGENT_PORT = 9140;
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:9141';
+
+// Authoritative Single Hardware Discovery Pipeline
+const discoveryService = new HardwareDiscoveryService();
+const authManager = new AuthorizationManager({ backendUrl: BACKEND_URL });
 const thresholdEngine = new ThresholdEngine();
 const cleanupEngine = new CleanupEngine();
 const notificationManager = new NotificationManager();
-const hardwareScanner = new HardwareScanner();
-const threatScanner = new ThreatScanner();
-const driverManager = new DriverManager();
-const networkOptimizer = new NetworkOptimizer();
+const hardwareScanner = new HardwareScanner(discoveryService);
+const threatScanner = new ThreatScanner(discoveryService);
+const driverManager = new DriverManager(discoveryService);
+const networkOptimizer = new NetworkOptimizer(discoveryService);
 const orchestrator = new SystemScanOrchestrator();
 const reportStore = new ReportStore();
 const geminiService = new GeminiService();
 const predictiveMonitor = new PredictiveMonitor(reportStore, geminiService, notificationManager);
-
-const AGENT_PORT = 9140;
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:9141';
 
 let latestDiagnostics = null;
 let latestEvaluation = null;
@@ -41,7 +44,7 @@ let lastBackendReportTime = 0;
 
 async function refreshDiagnostics(forceLive = false) {
   try {
-    latestDiagnostics = await collector.collectFullDiagnostics(forceLive);
+    latestDiagnostics = await discoveryService.getLegacyDiagnosticsFormat(forceLive);
     latestEvaluation = thresholdEngine.evaluate(latestDiagnostics);
     
     // Process native Windows notifications (fires on new warning/critical or escalation)
@@ -95,10 +98,137 @@ async function reportToBackend() {
 }
 
 // ============================================
-// IPC API ENDPOINTS
+// NORMALIZED HARDWARE AGENT REST API (Req 21 & 49)
 // ============================================
 
-// 1. Live Telemetry Status & Scan
+// Service Health Endpoint
+app.get('/api/health', async (req, res) => {
+  res.json({
+    status: 'OK',
+    agentRunning: true,
+    platform: process.platform,
+    timestamp: new Date().toISOString(),
+    services: {
+      discoveryAvailable: true,
+      telemetryAvailable: latestDiagnostics !== null,
+      driverCatalogAvailable: driverManager.catalog.length > 0,
+      predictiveAvailable: true
+    }
+  });
+});
+
+// Normalized Device Identity & Authorization Status
+app.get('/api/device', async (req, res) => {
+  try {
+    const device = await discoveryService.getDeviceIdentity();
+    const authorization = authManager.getStatus();
+    res.json({ success: true, device, authorization });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Device Authorization State
+app.get('/api/device/authorization', (req, res) => {
+  res.json({
+    success: true,
+    authorization: authManager.getStatus()
+  });
+});
+
+// Factory / Technician Controlled Enrollment Trigger
+app.post('/api/device/enroll', async (req, res) => {
+  try {
+    const { provisioningKey } = req.body || {};
+    if (!provisioningKey) {
+      return res.status(400).json({ success: false, message: 'provisioningKey required for machine enrollment.' });
+    }
+
+    const snapshot = await discoveryService.getFullSnapshot(true);
+    const result = await authManager.enrollMachine(provisioningKey, snapshot.system, snapshot.hardwareIdentity);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Normalized Device Capabilities
+app.get('/api/capabilities', async (req, res) => {
+  try {
+    const capabilities = await discoveryService.getCapabilities();
+    const authStatus = authManager.getStatus();
+    // Merge any enrolled device profile capability overrides
+    const mergedCapabilities = {
+      ...capabilities,
+      ...(authStatus.capabilities || {})
+    };
+    res.json({ success: true, capabilities: mergedCapabilities });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Normalized Hardware Specs
+app.get('/api/hardware', async (req, res) => {
+  try {
+    const hardware = await discoveryService.getHardware();
+    res.json({ success: true, hardware });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Normalized Multi-Disk and Multi-Volume Storage
+app.get('/api/storage', async (req, res) => {
+  try {
+    const storage = await discoveryService.getStorage();
+    res.json({ success: true, storage });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Normalized Power / Battery
+app.get('/api/power', async (req, res) => {
+  try {
+    const power = await discoveryService.getPower();
+    res.json({ success: true, power });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Normalized Network Interfaces, Gateway, and Configured DNS
+app.get('/api/network', async (req, res) => {
+  try {
+    const network = await discoveryService.getNetwork();
+    res.json({ success: true, network });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Normalized Software and OS Environment
+app.get('/api/software', async (req, res) => {
+  try {
+    const software = await discoveryService.getSoftware();
+    res.json({ success: true, software });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Full Normalized Hardware Snapshot
+app.get('/api/snapshot', async (req, res) => {
+  try {
+    const snapshot = await discoveryService.getFullSnapshot();
+    res.json({ success: true, snapshot });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 1. Live Telemetry Status & Scan (Unified Diagnostic Model)
 app.get('/api/status', async (req, res) => {
   if (!latestDiagnostics) {
     await refreshDiagnostics(true);
@@ -107,6 +237,7 @@ app.get('/api/status', async (req, res) => {
     success: true,
     agentStatus: 'RUNNING',
     lastSyncTime,
+    authorization: authManager.getStatus(),
     diagnostics: latestDiagnostics,
     evaluation: latestEvaluation
   });
@@ -135,18 +266,23 @@ app.get('/api/orchestrator/progress', (req, res) => {
   });
 });
 
-// 3. Update Drivers
+// 3. Driver Management Endpoints
+app.get('/api/drivers', async (req, res) => {
+  const result = await driverManager.scanDrivers();
+  res.json({ success: true, result });
+});
+
 app.get('/api/drivers/catalog', (req, res) => {
   res.json({ success: true, catalog: driverManager.catalog });
 });
 
-app.post('/api/drivers/scan', (req, res) => {
-  const result = driverManager.scanDrivers();
+app.post('/api/drivers/scan', async (req, res) => {
+  const result = await driverManager.scanDrivers();
   res.json({ success: true, result });
 });
 
-app.post('/api/drivers/update-all', (req, res) => {
-  const result = driverManager.updateAllDrivers();
+app.post('/api/drivers/update-all', async (req, res) => {
+  const result = await driverManager.updateAllDrivers();
   res.json({ success: true, result });
 });
 
@@ -157,9 +293,9 @@ app.post('/api/drivers/update-single', (req, res) => {
   res.json({ success: true, result });
 });
 
-// 4. Scan Hardware (OS-level Telemetry)
-app.post('/api/hardware/scan', (req, res) => {
-  const result = hardwareScanner.scanAll();
+// 4. Scan Hardware Subsystems
+app.post('/api/hardware/scan', async (req, res) => {
+  const result = await hardwareScanner.scanAll();
   res.json({ success: true, result });
 });
 
@@ -177,26 +313,26 @@ app.post('/api/cleanup/execute', async (req, res) => {
 });
 
 // 6. Optimize Network
-app.post('/api/network/optimize', (req, res) => {
-  const result = networkOptimizer.optimize();
+app.post('/api/network/optimize', async (req, res) => {
+  const result = await networkOptimizer.optimize();
   res.json({ success: true, result });
 });
 
 // 7. Threat Scan (Windows Defender)
-app.get('/api/threat/status', (req, res) => {
-  const status = threatScanner.getDefenderStatus();
+app.get('/api/threat/status', async (req, res) => {
+  const status = await threatScanner.getDefenderStatus();
   res.json({ success: true, status });
 });
 
-app.post('/api/threat/scan', (req, res) => {
+app.post('/api/threat/scan', async (req, res) => {
   const { scanType = 'QuickScan' } = req.body || {};
-  const result = threatScanner.scan(scanType);
+  const result = await threatScanner.scan(scanType);
   res.json({ success: true, result });
 });
 
-app.post('/api/security/scan', (req, res) => {
+app.post('/api/security/scan', async (req, res) => {
   const { scanType = 'QuickScan' } = req.body || {};
-  const result = threatScanner.scan(scanType);
+  const result = await threatScanner.scan(scanType);
   res.json({ success: true, result });
 });
 
@@ -239,7 +375,7 @@ app.post('/api/notifications/test', (req, res) => {
   res.json({ success: true, message: 'Test notification triggered', summary });
 });
 
-// 8. AI Assistant & Predictive Monitoring Endpoints
+// 10. AI Assistant & Predictive Monitoring Endpoints
 app.post('/api/ai/chat', async (req, res) => {
   try {
     const { question } = req.body || {};
@@ -276,9 +412,9 @@ app.post('/api/ai/resolve', async (req, res) => {
     if (action === 'run_cleanup') {
       executionResult = cleanupEngine.executeCleanup({ includeRecycleBin: false, runVolumeOptimization: true });
     } else if (action === 'run_driver_update') {
-      executionResult = driverManager.updateAllDrivers();
+      executionResult = await driverManager.updateAllDrivers();
     } else if (action === 'optimize_network') {
-      executionResult = networkOptimizer.optimize();
+      executionResult = await networkOptimizer.optimize();
     } else if (action === 'schedule_disk_check' || action === 'reduce_startup_apps') {
       executionResult = { status: 'QUEUED', message: 'Diagnostic check queued for next scheduled maintenance window.' };
     } else {
@@ -294,6 +430,7 @@ app.post('/api/ai/resolve', async (req, res) => {
   }
 });
 
+// 11. Support Ticket with Real Device Snapshot Attached
 app.post('/api/support/ticket', async (req, res) => {
   try {
     const { customerName, customerEmail, issueDescription, priority } = req.body;
@@ -302,13 +439,21 @@ app.post('/api/support/ticket', async (req, res) => {
       await refreshDiagnostics(true);
     }
 
+    const deviceIdentity = await discoveryService.getDeviceIdentity();
+    const capabilities = await discoveryService.getCapabilities();
+
     const ticketPayload = {
-      deviceId: latestDiagnostics.system.serialNumber,
-      customerName: customerName || 'Valued Avantis Customer',
+      deviceId: latestDiagnostics.system.serialNumber || deviceIdentity.displayName,
+      model: deviceIdentity.displayName,
+      isAvantis: deviceIdentity.isAvantis,
+      deviceType: deviceIdentity.deviceType,
+      customerName: customerName || 'Valued Customer',
       customerEmail: customerEmail || 'customer@avantispc.com',
       issueDescription: issueDescription || 'General Support Escalation',
       priority: priority || 'MEDIUM',
       diagnosticSnapshot: {
+        device: deviceIdentity,
+        capabilities,
         diagnostics: latestDiagnostics,
         evaluation: latestEvaluation
       }
@@ -353,11 +498,18 @@ async function startAgent() {
 
   await refreshDiagnostics(true);
 
+  // Initialize device enrollment & authorization
+  await authManager.init();
+  console.log(`[Avantis Agent] Device Authorization: ${authManager.state.status} (ID: ${authManager.state.deviceId || 'Unenrolled'})`);
+
   // Initialize predictive monitoring engine
   predictiveMonitor.start();
 
   // Real-time polling loop every 5 seconds (5000ms)
   setInterval(() => refreshDiagnostics(false), 5000);
+
+  // Verify backend authorization every 60 seconds
+  setInterval(() => authManager.verifyWithBackend(), 60000);
 }
 
 startAgent();

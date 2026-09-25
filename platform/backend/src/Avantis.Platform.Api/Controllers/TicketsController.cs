@@ -73,6 +73,7 @@ public class TicketsController : ControllerBase
         return Ok(new { success = true, ticketId = ticket.Id, message = "Ticket created successfully" });
     }
 
+    [HttpPatch("{id}")]
     [HttpPatch("{id}/status")]
     public async Task<IActionResult> UpdateTicketStatus(string id, [FromBody] UpdateTicketStatusRequest req)
     {

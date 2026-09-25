@@ -1,30 +1,46 @@
 @echo off
-title Avantis Hardware Support System Launcher
+title Avantis Assist Enterprise Platform Launcher
 echo ===================================================
-echo   AVANTiS Hardware Support
-echo   Product of Zimbabwe
+echo   AVANTIS ASSIST ENTERPRISE PLATFORM
+echo   Endpoint Intelligence, Fleet Support and Diagnostics
 echo ===================================================
 echo.
-echo Starting microservices and background agent...
+echo Starting enterprise microservices and agent...
 echo.
 
-start "Avantis Backend API" cmd /c "cd /d %~dp0..\backend && node src/server.js"
+:: 1. Enterprise Cloud Platform Backend (.NET 8)
+echo [1/4] Launching Enterprise Platform API (Port 9141)...
+start "Avantis Platform API" cmd /k "cd /d %~dp0..\platform\backend\src\Avantis.Platform.Api && dotnet run"
+timeout /t 3 /nobreak >nul
+
+:: 2. Enterprise Windows Agent (.NET 8)
+echo [2/4] Launching Windows Enterprise Agent (Port 9140)...
+start "Avantis Windows Agent" cmd /k "cd /d %~dp0..\agent_net\src\Avantis.Agent.Service && dotnet run"
 timeout /t 2 /nobreak >nul
 
-start "Avantis Background Agent" cmd /c "cd /d %~dp0..\agent && node src/index.js"
-timeout /t 2 /nobreak >nul
+:: 3. Client Companion UI
+echo [3/4] Launching Client Desktop Companion UI (Port 9142)...
+start "Avantis Client Companion UI" cmd /k "cd /d %~dp0..\client-ui && node server.js"
+timeout /t 1 /nobreak >nul
 
-start "Avantis Customer Desktop UI" cmd /c "cd /d %~dp0..\client-ui && node server.js"
-timeout /t 2 /nobreak >nul
+:: 4. Fleet Support IT Dashboard
+echo [4/4] Launching Fleet IT Support Console (Port 9143)...
+start "Avantis Support Console" cmd /k "cd /d %~dp0..\support-dashboard && node server.js"
+timeout /t 1 /nobreak >nul
 
 echo.
-echo [OK] Services successfully launched!
+echo ===================================================
+echo   [OK] All Avantis Enterprise Services Active!
+echo ===================================================
 echo.
-echo - Background Agent IPC:       http://localhost:9140
-echo - Cloud Backend API:          http://localhost:9141
-echo - Customer Support Dashboard: http://localhost:9142
+echo - Platform API (Swagger UI):   http://localhost:9141/swagger
+echo - Agent Service Local IPC:     http://localhost:9140/api/status
+echo - Client Desktop UI:           http://localhost:9142
+echo - Fleet IT Support Console:    http://localhost:9143
 echo.
-echo Press any key to run hardware verification suite...
+echo Press any key to open the web interfaces in your default browser...
 pause >nul
-node "%~dp0test_hardware.js"
-pause
+
+start http://localhost:9142
+start http://localhost:9143
+start http://localhost:9141/swagger

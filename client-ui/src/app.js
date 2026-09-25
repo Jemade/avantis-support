@@ -340,21 +340,31 @@ function applyAuthorizationUI(auth) {
     authAlert.style.background = '#fffbeb';
     authAlert.style.borderColor = '#fde68a';
     authAlert.style.color = '#92400e';
-    if (authText) authText.innerText = 'Device Enrollment Required — This Windows PC has not been enrolled into the Avantis Registry. Contact Avantis Support to provision this PC.';
+    if (authText) authText.innerText = 'Avantis Machine Activation Required — Please enter your organization activation code (1234) to authorize this PC.';
+    const actModal = document.getElementById('activation-modal');
+    if (actModal && !sessionStorage.getItem('avantis_activation_dismissed')) {
+      actModal.style.display = 'flex';
+    }
   } else if (status === 'NOT_AUTHORIZED') {
     authAlert.style.display = 'flex';
     authAlert.style.background = '#fef2f2';
     authAlert.style.borderColor = '#fca5a5';
     authAlert.style.color = '#991b1b';
     if (authText) authText.innerText = 'Device Authorization Invalid — Hardware credentials could not be validated with Avantis Support.';
+    const actModal = document.getElementById('activation-modal');
+    if (actModal) actModal.style.display = 'flex';
   } else if (status === 'OFFLINE') {
     authAlert.style.display = 'flex';
     authAlert.style.background = '#f0fdfa';
     authAlert.style.borderColor = '#99f6e4';
     authAlert.style.color = '#0f766e';
     if (authText) authText.innerText = 'Offline Mode Active — Local Windows hardware diagnostics are available. Cloud synchronization will resume once online.';
+    const actModal = document.getElementById('activation-modal');
+    if (actModal) actModal.style.display = 'none';
   } else if (status === 'AUTHORIZED') {
     authAlert.style.display = 'none';
+    const actModal = document.getElementById('activation-modal');
+    if (actModal) actModal.style.display = 'none';
   }
 }
 
@@ -1194,7 +1204,165 @@ if (chatInputEl && chatSendBtnEl) {
 }
 
 // Initial Bootstrap on load
+detectAndApplyScreenProfile();
 ['fullscan', 'drivers', 'scanhw', 'cleanup', 'network', 'threat'].forEach(updateActionCardUI);
 fetchDeviceIdentity();
 loadSummaryData();
 fetchLiveHardwareTelemetry();
+
+// ============================================
+// DEVICE ACTIVATION (Organization Code, e.g. 1234)
+// ============================================
+async function handleActivationSubmit(event) {
+  if (event) event.preventDefault();
+  const inputEl = document.getElementById('activation-code-input');
+  const errorEl = document.getElementById('activation-error-msg');
+  const btnEl = document.getElementById('activation-submit-btn');
+
+  if (!inputEl) return;
+  const code = inputEl.value.trim();
+  if (!code) return;
+
+  if (errorEl) {
+    errorEl.style.display = 'none';
+    errorEl.innerText = '';
+  }
+
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.innerHTML = '<span>Verifying...</span>';
+  }
+
+  try {
+    const currentScreenProfile = document.documentElement.getAttribute('data-screen-profile') || 'auto';
+    const res = await fetch(`${AGENT_URL}/api/activate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        activationCode: code,
+        screenProfile: currentScreenProfile
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      const modal = document.getElementById('activation-modal');
+      if (modal) modal.style.display = 'none';
+
+      await fetchLiveHardwareTelemetry();
+      await fetchDeviceIdentity();
+      showInfoModal('Avantis Machine Activation', 'This device has been successfully activated and authorized for the Avantis Endpoint Intelligence Platform!');
+    } else {
+      if (errorEl) {
+        errorEl.innerText = data.message || 'Invalid activation code. Please enter an authorized organization license code.';
+        errorEl.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    if (errorEl) {
+      errorEl.innerText = 'Could not reach Avantis Agent or Cloud Backend: ' + err.message;
+      errorEl.style.display = 'block';
+    }
+  } finally {
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.innerHTML = '<span>Activate Machine</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
+    }
+  }
+}
+
+// ============================================
+// SCREEN PROFILE MANAGEMENT (14" / 15.6" / Auto)
+// ============================================
+function detectAndApplyScreenProfile() {
+  const saved = localStorage.getItem('avantis_screen_profile') || 'auto';
+  setScreenProfile(saved, false);
+}
+
+function setScreenProfile(profile, persist = true) {
+  if (persist) {
+    localStorage.setItem('avantis_screen_profile', profile);
+  }
+
+  document.querySelectorAll('.profile-pill-btn').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.getElementById(`pill-screen-${profile === '14inch' ? '14' : profile === '15inch' ? '15' : 'auto'}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  let effective = profile;
+  if (profile === 'auto') {
+    const w = window.innerWidth || screen.width;
+    const h = window.innerHeight || screen.height;
+    if (w <= 1440 || h <= 820) {
+      effective = '14inch';
+    } else {
+      effective = '15inch';
+    }
+  }
+
+  document.documentElement.setAttribute('data-screen-profile', effective);
+  document.body.setAttribute('data-screen-profile', effective);
+
+  const actForm = document.getElementById('act-hw-form-factor');
+  if (actForm) {
+    actForm.innerText = effective === '14inch' ? 'Avantis Laptop (14.0" HD/FHD)' : 'Avantis Laptop (15.6" FHD)';
+  }
+}
+
+window.addEventListener('resize', () => {
+  if ((localStorage.getItem('avantis_screen_profile') || 'auto') === 'auto') {
+    setScreenProfile('auto', false);
+  }
+});
+
+// ============================================
+// PWA & DESKTOP INSTALLATION
+// ============================================
+let deferredInstallPrompt = null;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => {
+      console.warn('[SW] Registration notice:', err.message);
+    });
+  });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById('app-install-btn');
+  if (btn) btn.style.display = 'inline-flex';
+});
+
+async function triggerAppInstall() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    console.log('[PWA] User install choice:', outcome);
+    deferredInstallPrompt = null;
+  } else {
+    showInfoModal(
+      'Install Avantis PC Assist',
+      'To install Avantis PC Assist on this machine:\n\n' +
+      '1. Desktop Shortcut: Run "scripts\\install_client_app.bat" in the Avantis folder to install a native Desktop & Start Menu shortcut.\n\n' +
+      '2. Browser Standalone App: Click the "Install" or "App Available" icon in your browser address bar to install as a dedicated desktop window.'
+    );
+  }
+}
+
+// ============================================
+// LIGHTWEIGHT POWER & RESOURCE MANAGEMENT
+// ============================================
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (liveTelemetryTimer) {
+      clearInterval(liveTelemetryTimer);
+      liveTelemetryTimer = null;
+    }
+  } else {
+    fetchLiveHardwareTelemetry();
+    if (!liveTelemetryTimer) {
+      liveTelemetryTimer = setInterval(fetchLiveHardwareTelemetry, 5000);
+    }
+  }
+});

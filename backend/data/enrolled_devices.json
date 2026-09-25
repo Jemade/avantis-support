@@ -1,0 +1,31 @@
+[
+  {
+    "deviceId": "AVT-DEV-7B4AE04B37CA",
+    "installationId": "AVT-INST-C2FFA6B2-AF78-4141-A162-9A994A237E60",
+    "deviceStatus": "ACTIVE",
+    "model": "Avantis Laptop Student 14",
+    "serialNumber": "AVT-7B4AE04B",
+    "hardwareIdentity": "7b4ae04b37caf718024da3b2131265faa606fd064df7bf8f676691c0717851ea",
+    "enrollmentStatus": "ENROLLED",
+    "authorizationStatus": "AUTHORIZED",
+    "clientVersion": "2.4.0",
+    "capabilities": {
+      "battery": true,
+      "batteryHealth": true,
+      "temperatureSensors": true,
+      "smartStorage": true,
+      "wifi": true,
+      "ethernet": true,
+      "defender": true,
+      "windowsUpdate": true,
+      "driverManagement": true,
+      "networkReset": true,
+      "volumeOptimization": true
+    },
+    "authToken": "39d84f7292b7cd84b0a26a10082c5e31ed85c307230e132b357d59b8bd7d22ef",
+    "enrolledBy": "Self-Activated (Code: 1234)",
+    "enrolledAt": "2026-09-25T08:40:56.640Z",
+    "lastSeen": "2026-09-25T08:40:56.640Z",
+    "revocationReason": null
+  }
+]

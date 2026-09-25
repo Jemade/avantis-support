@@ -1,10 +1,13 @@
 const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
 
 class PostgreSQLDatabase {
   constructor() {
     this.connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/avantis_db';
     this.pool = null;
     this.isNativePgConnected = false;
+    this.persistencePath = path.resolve(__dirname, '..', '..', 'data', 'enrolled_devices.json');
     this.inMemoryStore = {
       devices: new Map(),
       enrolledDevices: new Map(),
@@ -15,6 +18,20 @@ class PostgreSQLDatabase {
   }
 
   async init() {
+    // Load persisted enrolled devices if using in-memory store
+    try {
+      if (fs.existsSync(this.persistencePath)) {
+        const raw = fs.readFileSync(this.persistencePath, 'utf8');
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          list.forEach(d => this.inMemoryStore.enrolledDevices.set(d.deviceId, d));
+          console.log(`[Database] Restored ${list.length} enrolled device record(s) from persistent storage.`);
+        }
+      }
+    } catch (e) {
+      console.warn('[Database] Could not read persisted devices:', e.message);
+    }
+
     try {
       this.pool = new Pool({
         connectionString: this.connectionString,
@@ -30,6 +47,17 @@ class PostgreSQLDatabase {
     } catch (err) {
       console.log('[Database] Live PostgreSQL server not detected on localhost:5432. Activating PostgreSQL in-memory fallback adapter.');
       this.isNativePgConnected = false;
+    }
+  }
+
+  persistEnrolledDevices() {
+    try {
+      const dir = path.dirname(this.persistencePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const list = Array.from(this.inMemoryStore.enrolledDevices.values());
+      fs.writeFileSync(this.persistencePath, JSON.stringify(list, null, 2), 'utf8');
+    } catch (err) {
+      console.warn('[Database] Failed to persist enrolled devices:', err.message);
     }
   }
 
@@ -319,6 +347,7 @@ class PostgreSQLDatabase {
       ]);
     } else {
       this.inMemoryStore.enrolledDevices.set(data.deviceId, data);
+      this.persistEnrolledDevices();
     }
 
     return data;
@@ -412,6 +441,7 @@ class PostgreSQLDatabase {
         dev.deviceStatus = 'REVOKED';
         dev.revocationReason = reason;
         dev.lastSeen = now;
+        this.persistEnrolledDevices();
       }
     }
     return { success: true, deviceId, status: 'REVOKED', reason };

@@ -477,6 +477,84 @@ app.post('/api/support/ticket', async (req, res) => {
   }
 });
 
+// POST /api/activate — Activate machine with Avantis organization code (e.g. 1234)
+app.post('/api/activate', async (req, res) => {
+  try {
+    const { activationCode, screenProfile } = req.body;
+    if (!activationCode) {
+      return res.status(400).json({ success: false, message: 'Activation code is required.' });
+    }
+
+    console.log(`[Agent] Processing device activation request with code: ${activationCode}...`);
+
+    // Capture complete physical hardware snapshot
+    const snapshot = await discoveryService.getFullSnapshot(true);
+    const hwId = snapshot.hardwareIdentity || {};
+    const sys = snapshot.system || {};
+
+    const activationPayload = {
+      activationCode,
+      deviceId: hwId.deviceId,
+      installationId: hwId.installationId,
+      hardwareIdentity: hwId.hardwareIdentityHash,
+      model: sys.model,
+      serialNumber: sys.serialNumber,
+      screenProfile: screenProfile || 'auto',
+      systemInfo: {
+        manufacturer: sys.manufacturer,
+        model: sys.model,
+        chassisType: sys.chassis?.type,
+        sku: sys.sku,
+        serialNumber: sys.serialNumber,
+        hasBattery: snapshot.battery?.hasBattery,
+        batteryPercent: snapshot.battery?.currentPercent,
+        cpuModel: snapshot.cpu?.brand || sys.cpuModel,
+        cpuCores: sys.cpuCores,
+        ramTotalGB: snapshot.memory?.totalGB,
+        storageTotalGB: snapshot.storage?.totalGB,
+        storageSmart: snapshot.storage?.smartStatus
+      },
+      clientVersion: '2.4.0'
+    };
+
+    const backendRes = await fetch(`${BACKEND_URL}/api/v1/enrollment/activate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(activationPayload)
+    });
+
+    const data = await backendRes.json();
+
+    if (backendRes.ok && data.success && data.enrolled) {
+      // Save credentials locally
+      authManager.saveCredentials({
+        deviceId: data.enrolled.deviceId,
+        installationId: data.enrolled.installationId,
+        authToken: data.enrolled.authToken,
+        model: data.enrolled.model,
+        serialNumber: data.enrolled.serialNumber,
+        capabilities: data.enrolled.capabilities,
+        enrolledAt: data.enrolled.enrolledAt
+      });
+
+      console.log(`[Agent] Machine successfully activated as "${data.enrolled.model}"!`);
+      return res.json({
+        success: true,
+        message: data.message,
+        authorization: authManager.getStatus()
+      });
+    } else {
+      return res.status(backendRes.status || 400).json({
+        success: false,
+        message: data.message || 'Activation failed'
+      });
+    }
+  } catch (err) {
+    console.error('[Agent] Activation error:', err);
+    res.status(500).json({ success: false, message: 'Could not connect to activation backend: ' + err.message });
+  }
+});
+
 // Initialize & start background monitoring loop
 async function startAgent() {
   app.listen(AGENT_PORT, () => {

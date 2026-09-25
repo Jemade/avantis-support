@@ -1421,3 +1421,479 @@ input:disabled, select:disabled, textarea:disabled {
   .avantis-hero-copy { padding: var(--space-8) var(--space-5); }
   .avantis-hero-title { font-size: 28px; }
 }
+
+/* ==========================================================================
+   TOP BAR CONTROLS: DISPLAY SWITCHER, INSTALL BUTTON & DEVICE BADGE
+   ========================================================================== */
+.screen-profile-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--neutral-100);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-pill);
+  padding: 3px 6px 3px 10px;
+}
+
+.screen-profile-caption {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--neutral-500);
+}
+
+.screen-profile-pills {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.profile-pill-btn {
+  background: transparent;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--neutral-700);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.profile-pill-btn:hover {
+  background: rgba(19, 163, 175, 0.12);
+  color: var(--teal-600);
+}
+
+.profile-pill-btn.active {
+  background: var(--teal-500);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(19, 163, 175, 0.25);
+}
+
+/* Install Button */
+.app-install-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--teal-500) 0%, var(--cta-500) 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(19, 163, 175, 0.28);
+  transition: transform 0.12s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.app-install-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 10px rgba(19, 163, 175, 0.38);
+  transform: translateY(-1px);
+}
+
+.app-install-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(19, 163, 175, 0.25);
+}
+
+/* Device Spec Badge */
+.device-spec-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--neutral-100);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--neutral-700);
+}
+
+.device-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 2px rgba(11, 188, 168, 0.2);
+}
+
+/* ==========================================================================
+   14-INCH COMPACT LAPTOP PROFILE (Viewport: 1280x720 to 1440x850, e.g. 1080p@150%)
+   Constraint: Vertical screen real estate is limited (~600-720px available).
+   Solution: Compact density, tighter vertical paddings, 3-col grids, low-profile meters.
+   ========================================================================== */
+html[data-screen-profile="14inch"],
+body[data-screen-profile="14inch"],
+@media (max-width: 1440px) and (max-height: 860px) {
+  :root {
+    --space-8: 16px;
+    --space-10: 20px;
+  }
+
+  /* Compact brand bar */
+  .app-brand-bar {
+    min-height: 54px;
+    height: 54px;
+    padding: 0 var(--space-6);
+  }
+
+  .avantis-logo-img {
+    height: 38px;
+  }
+
+  .primary-nav-tabs {
+    height: 54px;
+    gap: 1px;
+  }
+
+  .nav-tab-link {
+    font-size: 13px;
+    padding: 0 12px;
+  }
+
+  /* Compact action toolbar */
+  .actions-toolbar {
+    padding: 6px var(--space-6);
+  }
+
+  .toolbar-action-btn {
+    min-height: 58px;
+    min-width: 104px;
+    padding: 6px 10px;
+    gap: 4px;
+  }
+
+  .tb-action-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .tb-action-label {
+    font-size: 11px;
+  }
+
+  /* System Welcome Panel — compact above-the-fold display */
+  .sys-welcome-panel {
+    padding: 16px 24px;
+  }
+
+  .sys-welcome-inner {
+    gap: 24px;
+    grid-template-columns: 1fr 1.15fr;
+  }
+
+  .sys-welcome-title {
+    font-size: 20px;
+    letter-spacing: -0.2px;
+  }
+
+  .sys-welcome-sub {
+    font-size: 12px;
+    line-height: 1.45;
+    max-width: 320px;
+  }
+
+  .sys-btn-primary {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+
+  .sys-btn-secondary {
+    padding: 8px 14px;
+    font-size: 11.5px;
+  }
+
+  .sys-welcome-meters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .sys-meter-card {
+    padding: 10px 12px;
+  }
+
+  .sys-meter-header {
+    margin-bottom: 6px;
+    gap: 8px;
+  }
+
+  .sys-meter-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .sys-meter-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .sys-meter-name {
+    font-size: 11px;
+  }
+
+  .sys-meter-value {
+    font-size: 12px;
+  }
+
+  .sys-meter-bar-wrap {
+    height: 4px;
+    margin-bottom: 4px;
+  }
+
+  .sys-meter-sub {
+    font-size: 10px;
+  }
+
+  /* Main content spacing */
+  .app-main-content {
+    padding: 16px 24px 48px;
+  }
+
+  .summary-tiles-row, .actions-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .card, .action-card, .summary-tile {
+    padding: 14px 16px;
+  }
+
+  .sec-heading-row h2 {
+    font-size: 17px;
+  }
+
+  /* Diagnostic scan orchestrator overlay */
+  .scan-orchestrator-box {
+    padding: 20px 24px;
+  }
+}
+
+/* ==========================================================================
+   15.6-INCH WIDESCREEN LAPTOP PROFILE (Viewport: 1536x864 to 1920x1080, e.g. 1080p@125% or 100%)
+   Constraint: Wider horizontal space, standard laptop viewing distance (~50cm).
+   Solution: Balanced 4-column cards grid, generous clarity, crisp hierarchy.
+   ========================================================================== */
+html[data-screen-profile="15inch"],
+body[data-screen-profile="15inch"],
+@media (min-width: 1441px) and (min-height: 861px) {
+  .app-brand-bar {
+    min-height: 68px;
+    height: 68px;
+    padding: 0 var(--space-10);
+  }
+
+  .avantis-logo-img {
+    height: 46px;
+  }
+
+  .primary-nav-tabs {
+    height: 68px;
+  }
+
+  .sys-welcome-panel {
+    padding: 32px 48px;
+  }
+
+  .sys-welcome-inner {
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+
+  .sys-welcome-title {
+    font-size: 26px;
+  }
+
+  .sys-welcome-meters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .summary-tiles-row, .actions-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+  }
+
+  .app-main-content {
+    padding: 28px 48px 64px;
+    max-width: 1480px;
+  }
+}
+
+/* ==========================================================================
+   STANDALONE INSTALLED APP WINDOW (PWA / Edge / Chrome --app)
+   Removes web margins and integrates natively with Windows titlebar
+   ========================================================================== */
+@media all and (display-mode: standalone) {
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .app-top-header {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Hide the install button once already installed */
+  .app-install-btn {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   AVANTIS MACHINE ACTIVATION MODAL
+   ========================================================================== */
+.activation-card {
+  max-width: 520px;
+  width: 90%;
+  padding: 32px 36px;
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 48px rgba(10, 47, 53, 0.28);
+  border: 1px solid rgba(19, 163, 175, 0.15);
+  animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.activation-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.activation-logo {
+  height: 44px;
+  width: auto;
+  margin: 0 auto 12px;
+}
+
+.activation-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--neutral-900);
+  margin-bottom: 6px;
+}
+
+.activation-sub {
+  font-size: 13px;
+  color: var(--neutral-600);
+  line-height: 1.5;
+}
+
+.detected-hw-box {
+  background: var(--neutral-50);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.detected-hw-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--teal-600);
+  margin-bottom: 10px;
+}
+
+.detected-hw-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+}
+
+.detected-hw-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hw-item-lbl {
+  font-size: 11px;
+  color: var(--neutral-500);
+  font-weight: 600;
+}
+
+.hw-item-val {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--neutral-800);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activation-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--neutral-800);
+}
+
+.activation-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activation-code-input {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--neutral-900);
+  background: var(--neutral-0);
+  border: 2px solid var(--teal-400);
+  border-radius: var(--radius-md);
+  text-align: center;
+  text-transform: uppercase;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.activation-code-input:focus {
+  border-color: var(--teal-600);
+  box-shadow: 0 0 0 3px rgba(19, 163, 175, 0.2);
+  outline: none;
+}
+
+.activation-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 20px;
+  white-space: nowrap;
+}
+
+.activation-error {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+}
+
+.activation-hint {
+  font-size: 11.5px;
+  color: var(--neutral-500);
+  line-height: 1.4;
+  margin-top: 6px;
+  text-align: center;
+}

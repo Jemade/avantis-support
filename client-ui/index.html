@@ -13,6 +13,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Open+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap" rel="stylesheet">
   
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a2f35">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Avantis Assist">
+  
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,14 +26,14 @@
   <!-- ==================== 1. PERSISTENT TOP HEADER ==================== -->
   <header class="app-top-header">
     
-    <!-- Top Row: Logo, Primary Tabs, Service Plan & Tag -->
+    <!-- Top Row: Logo, Primary Tabs, Screen Switcher & Install -->
     <div class="app-brand-bar">
       <div class="brand-bar-left">
         <a href="javascript:void(0)" class="avantis-brand-link" onclick="routeToNav('home')">
           <img src="assets/Avantis-logo-prl.png" alt="AVANTIS — Product of Zimbabwe" class="avantis-logo-img">
         </a>
 
-        <!-- Primary Navigation Tabs (Matching Reference Image) -->
+        <!-- Primary Navigation Tabs -->
         <nav class="primary-nav-tabs" id="primary-nav-tabs">
           <button type="button" class="nav-tab-link active" id="tab-link-home" onclick="routeToNav('home')">Home</button>
           <button type="button" class="nav-tab-link" id="tab-link-discover" onclick="routeToNav('discover')">Discover</button>
@@ -38,6 +44,31 @@
       </div>
 
       <div class="brand-bar-right" id="brand-bar-right">
+        <!-- Display Profile Mode Switcher (14" / 15.6" / Auto) -->
+        <div class="screen-profile-control" title="Display density profile">
+          <span class="screen-profile-caption">Display:</span>
+          <div class="screen-profile-pills">
+            <button type="button" class="profile-pill-btn active" id="pill-screen-auto" onclick="setScreenProfile('auto')">Auto</button>
+            <button type="button" class="profile-pill-btn" id="pill-screen-14" onclick="setScreenProfile('14inch')">14"</button>
+            <button type="button" class="profile-pill-btn" id="pill-screen-15" onclick="setScreenProfile('15inch')">15.6"</button>
+          </div>
+        </div>
+
+        <!-- Install App Button (PWA prompt & Windows standalone app) -->
+        <button type="button" class="app-install-btn" id="app-install-btn" onclick="triggerAppInstall()" title="Install Avantis PC Assist to your Windows Desktop">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span class="install-btn-text">Install App</span>
+        </button>
+
+        <!-- Current Device Identity Badge -->
+        <div class="device-spec-badge" id="device-spec-badge">
+          <span class="device-badge-dot"></span>
+          <span class="device-badge-name" id="device-badge-label">Detecting...</span>
+        </div>
       </div>
     </div>
 
@@ -670,14 +701,54 @@
     </div>
   </div>
 
-  <!-- Info Modal -->
-  <div class="modal-overlay" id="info-modal">
-    <div class="modal-card">
-      <h3 class="modal-title" id="info-modal-title">Notification</h3>
-      <p class="modal-copy" id="info-modal-msg"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn-primary" onclick="closeModal('info-modal')">OK</button>
+  <!-- ==================== AVANTIS DEVICE ACTIVATION MODAL ==================== -->
+  <div class="modal-overlay" id="activation-modal" style="display: none;">
+    <div class="modal-card activation-card">
+      <div class="activation-header">
+        <img src="assets/avantis_logo.png" alt="Avantis Logo" class="activation-logo">
+        <h3 class="activation-title">Avantis Machine Activation</h3>
+        <p class="activation-sub">This enterprise suite is licensed exclusively for genuine Avantis hardware. Enter your organization activation code to authorize this device.</p>
       </div>
+
+      <!-- Real Hardware Profile Summary -->
+      <div class="detected-hw-box">
+        <div class="detected-hw-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span>Detected Physical Hardware</span>
+        </div>
+        <div class="detected-hw-grid">
+          <div class="detected-hw-item">
+            <span class="hw-item-lbl">Hardware ID:</span>
+            <span class="hw-item-val mono" id="act-hw-device-id">Reading...</span>
+          </div>
+          <div class="detected-hw-item">
+            <span class="hw-item-lbl">Form Factor:</span>
+            <span class="hw-item-val" id="act-hw-form-factor">Laptop (14" / 15.6")</span>
+          </div>
+          <div class="detected-hw-item">
+            <span class="hw-item-lbl">Processor:</span>
+            <span class="hw-item-val" id="act-hw-cpu">Reading...</span>
+          </div>
+          <div class="detected-hw-item">
+            <span class="hw-item-lbl">Physical RAM:</span>
+            <span class="hw-item-val" id="act-hw-ram">Reading...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activation Code Form -->
+      <form class="activation-form" onsubmit="handleActivationSubmit(event)">
+        <label for="activation-code-input" class="activation-label">Enter Avantis Activation Code:</label>
+        <div class="activation-input-wrap">
+          <input type="text" id="activation-code-input" class="activation-code-input" placeholder="e.g. 1234" maxlength="32" autocomplete="off" value="1234" required>
+          <button type="submit" class="btn-primary activation-submit-btn" id="activation-submit-btn">
+            <span>Activate Machine</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <p class="activation-error" id="activation-error-msg" style="display: none;"></p>
+        <p class="activation-hint">Verified over cloud connection. Use code <strong>1234</strong> or your Avantis Enterprise license key.</p>
+      </form>
     </div>
   </div>
 

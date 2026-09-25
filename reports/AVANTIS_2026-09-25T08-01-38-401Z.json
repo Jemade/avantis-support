@@ -1,0 +1,215 @@
+{
+  "reportId": "AVANTIS_2026-09-25T08-01-38-401Z",
+  "filename": "AVANTIS_2026-09-25T08-01-38-401Z.json",
+  "hostname": "AVANTIS",
+  "platform": "win32",
+  "arch": "x64",
+  "generatedAt": "2026-09-25T08:01:38.401Z",
+  "overallStatus": "PASS",
+  "summary": {
+    "passedCount": 5,
+    "warningCount": 0,
+    "failedCount": 0,
+    "totalModules": 5,
+    "updatesInstalled": 1,
+    "spaceRecoveredGb": 0.13,
+    "filesOptimized": 148,
+    "threatsRemoved": 0,
+    "summaryText": "5 passed",
+    "rebootRequired": true
+  },
+  "modules": [
+    {
+      "key": "hardware",
+      "name": "Scan Hardware",
+      "order": 1,
+      "type": "read-only",
+      "status": "PASS",
+      "summary": "All physical hardware subsystems passed telemetry verification.",
+      "data": {
+        "status": "PASS",
+        "timestamp": "2026-09-25T07:56:01.912Z",
+        "components": [
+          {
+            "name": "Primary Storage (Disk Health & Capacity)",
+            "status": "PASS",
+            "reading": "MTFDHBL512TDQ 476.9 GB (SSD, Health: HEALTHY)",
+            "threshold": "SMART Status == HEALTHY (Critical on FAILING, Warning on ELEVATED_WEAR)",
+            "details": {
+              "friendlyName": "MTFDHBL512TDQ",
+              "mediaType": "SSD",
+              "busType": "NVMe",
+              "sizeGB": 476.9,
+              "smartStatus": "HEALTHY",
+              "wearPercent": null,
+              "readErrors": null,
+              "volumesCount": 1
+            }
+          },
+          {
+            "name": "Power Subsystem (AC / Battery Health)",
+            "status": "PASS",
+            "reading": "Battery Subsystem: 62% Charge (Retention not reported, On Battery)",
+            "threshold": "Capacity >= 60% of Design (Warning <60%, Fail <40%)",
+            "details": {
+              "isLaptop": true,
+              "hasBattery": true,
+              "currentChargePercent": 62,
+              "healthRetentionPercent": null,
+              "designCapacityMwh": null,
+              "fullChargeCapacityMwh": null,
+              "isCharging": false
+            }
+          },
+          {
+            "name": "Physical RAM (Memory Integrity)",
+            "status": "PASS",
+            "reading": "15.7 GB RAM across 1 channel(s) (63% current utilization)",
+            "threshold": "Memory Utilization < 95%, Physical Module Detection OK",
+            "details": {
+              "totalGB": 15.7,
+              "usedGB": 9.9,
+              "availableGB": 5.8,
+              "usedPercent": 63,
+              "moduleCount": 1,
+              "modules": [
+                {
+                  "slot": "BANK 0/0",
+                  "capacityGB": 16,
+                  "speedMHz": 3200
+                }
+              ]
+            }
+          },
+          {
+            "name": "Thermal Sensors (Processor / Chassis Heat)",
+            "status": "PASS",
+            "reading": "Thermal Sensors: Onboard thermal sensor reading is unavailable on this hardware or hypervisor",
+            "threshold": "Sensor Availability / Normal Operating Envelope",
+            "details": {
+              "temperatureC": null,
+              "supported": false,
+              "reason": "Temperature sensor is not exposed by this hardware or hypervisor"
+            }
+          }
+        ],
+        "limitationsNotice": "Hardware diagnostics are conducted using genuine OS-level telemetry (ACPI, WMI, SMART, powercfg). Proprietary pre-boot firmware diagnostics require vendor-specific UEFI environment.",
+        "summaryMessage": "All physical hardware subsystems passed telemetry verification."
+      }
+    },
+    {
+      "key": "threat",
+      "name": "Threat Scan",
+      "order": 2,
+      "type": "read-remediate",
+      "status": "PASS",
+      "summary": "Windows Defender scan completed: Zero threats, rootkits, or active malware detected.",
+      "data": {
+        "status": "PASS",
+        "timestamp": "2026-09-25T07:57:51.803Z",
+        "scanType": "QuickScan",
+        "durationSeconds": 110,
+        "engine": "Windows Defender",
+        "realTimeProtection": true,
+        "signatureAgeDays": 0,
+        "activeThreatsCount": 0,
+        "threats": [],
+        "remediatedCount": 0,
+        "available": true,
+        "summaryMessage": "Windows Defender scan completed: Zero threats, rootkits, or active malware detected."
+      }
+    },
+    {
+      "key": "drivers",
+      "name": "Update Drivers",
+      "order": 3,
+      "type": "write-install",
+      "status": "PASS",
+      "summary": "Successfully updated 1 driver package(s). Windows System Restore Point created.",
+      "data": {
+        "status": "PASS",
+        "timestamp": "2026-09-25T07:59:43.584Z",
+        "updatedCount": 1,
+        "updatedDrivers": [
+          {
+            "deviceName": "Realtek PCIe GbE Family Controller",
+            "versionInstalled": "10.68.815.2023"
+          }
+        ],
+        "summaryMessage": "Successfully updated 1 driver package(s). Windows System Restore Point created."
+      }
+    },
+    {
+      "key": "cleanup",
+      "name": "Clean Up Files",
+      "order": 4,
+      "type": "write-delete",
+      "status": "PASS",
+      "summary": "Cleaned 76 temporary items and reclaimed 137.89 MB storage on drive C:. SSD Volume C: TRIM optimization completed (NAND blocks trimmed).",
+      "data": {
+        "status": "PASS",
+        "cleanedTimestamp": "2026-09-25T07:59:48.517Z",
+        "beforeFreeGb": "324.87",
+        "afterFreeGb": "325.01",
+        "reclaimedBytes": 144619709,
+        "reclaimedMb": 137.89,
+        "reclaimedFiles": 76,
+        "mediaType": "SSD",
+        "systemDrive": "C:",
+        "volumeOptimizationMessage": "SSD Volume C: TRIM optimization completed (NAND blocks trimmed).",
+        "actionsTaken": [
+          "Purged 76 safe temporary and cache files.",
+          "Purged Windows Update download staging cache (SoftwareDistribution).",
+          "SSD Volume C: TRIM optimization completed (NAND blocks trimmed)."
+        ],
+        "summaryMessage": "Cleaned 76 temporary items and reclaimed 137.89 MB storage on drive C:. SSD Volume C: TRIM optimization completed (NAND blocks trimmed)."
+      }
+    },
+    {
+      "key": "network",
+      "name": "Optimize Network",
+      "order": 5,
+      "type": "write-reset",
+      "status": "PASS",
+      "summary": "Network stack optimized: Flushed Windows DNS resolver cache. Reset Winsock catalog (system restart required to apply fresh socket bindings). Reinitialized TCP/IP protocol stack.",
+      "data": {
+        "status": "PASS",
+        "timestamp": "2026-09-25T08:01:38.399Z",
+        "rebootRequired": true,
+        "actionsTaken": [
+          "Flushed Windows DNS resolver cache.",
+          "Reset Winsock catalog (system restart required to apply fresh socket bindings).",
+          "Reinitialized TCP/IP protocol stack."
+        ],
+        "before": {
+          "gateway": "192.168.100.1",
+          "gatewayLatencyMs": null,
+          "gatewayPacketLossPercent": 0,
+          "configuredDns": "fe80::1",
+          "dnsLatencyMs": null,
+          "dnsPacketLossPercent": 0,
+          "publicReference": "1.1.1.1",
+          "publicReferenceLatencyMs": null,
+          "publicReferencePacketLossPercent": 0
+        },
+        "after": {
+          "gateway": "192.168.100.1",
+          "gatewayLatencyMs": null,
+          "gatewayPacketLossPercent": 0,
+          "configuredDns": "fe80::1",
+          "dnsLatencyMs": null,
+          "dnsPacketLossPercent": 0,
+          "publicReference": "1.1.1.1",
+          "publicReferenceLatencyMs": null,
+          "publicReferencePacketLossPercent": 0
+        },
+        "summaryMessage": "Network stack optimized: Flushed Windows DNS resolver cache. Reset Winsock catalog (system restart required to apply fresh socket bindings). Reinitialized TCP/IP protocol stack."
+      }
+    }
+  ],
+  "metadata": {
+    "agentVersion": "2.4.0",
+    "engine": "Avantis Assist Orchestrator",
+    "osRelease": "10.0.26200"
+  }
+}

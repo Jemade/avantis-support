@@ -200,40 +200,14 @@ class AuthorizationManager {
     }
   }
 
-  postJson(urlStr, data) {
-    return new Promise((resolve, reject) => {
-      const u = new URL(urlStr);
-      const postData = JSON.stringify(data);
-      const req = http.request({
-        hostname: u.hostname,
-        port: u.port || 80,
-        path: u.pathname,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        },
-        timeout: 4000
-      }, (res) => {
-        let raw = '';
-        res.on('data', chunk => raw += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(raw));
-          } catch {
-            resolve({ raw });
-          }
-        });
-      });
-
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Connection timed out'));
-      });
-      req.write(postData);
-      req.end();
+  async postJson(urlStr, data) {
+    const res = await fetch(urlStr, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      signal: AbortSignal.timeout(5000)
     });
+    return await res.json();
   }
 
   getStatus() {
